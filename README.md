@@ -28,9 +28,9 @@
 安装Python3.11,以及Ollama最新版本。可搜索安装包一键安装，此处不赘述。
 ### 2.运行启动器检测并配置环境
 git拉取本仓库，使用python运行launcher.py<br/>
-<code>
+```bash
 python launcher.py
-</code>
+```
 <img width="442" height="466" alt="image" src="https://github.com/user-attachments/assets/336fe645-934f-41df-9bdb-3248ab2be070" />
 <br/>接着启动器会检测环境并安装环境。如有报错，可截图发送到Discord社区进行求助。<br/>
 配置成功后应如图所示，显示环境已就绪。
@@ -42,7 +42,7 @@ python launcher.py
 ## 创作者指南
 ### Modelfile创作
 Modelfile应该遵循Ollama规则，呈现如下格式。<br/>
-<code>
+```python
 FROM 模型名
 
 # 设置温度，0.7 是创造力与逻辑性的完美平衡点
@@ -69,11 +69,11 @@ SYSTEM """
   "bg_prompt": "描述具体场景与氛围，如cafe, indoor, daylight 或 school roof, night, sunset"
 }
 """
-</code>
+```
 
 ### PPRT创作
 PPRT为前置提示词，应遵循Stable Diffusion提示词规则。示例如下：<br/>
-<code>
+```python
 best quality, masterpiece, highres, 1girl, asuka langley, vibrant colors, anime style, soft lighting, sharp focus, looking at viewer, upper body,
-</code>
+```
 需要注意的是，结尾应当有","。
