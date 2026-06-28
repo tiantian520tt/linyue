@@ -25,17 +25,18 @@
 
 ## 使用教程
 ### 1.基本环境手动配置
-安装Python3.11,以及Ollama最新版本。可搜索安装包一键安装，此处不赘述。
+安装Python3.11,以及Ollama最新版本。可搜索安装包一键安装，此处不赘述。<br/>
+git拉取本仓库，创建文件夹models，并在下载模型anything-v5.safetensors存放在文件夹下。<a href="https://huggingface.co/genai-archive/anything-v5/tree/main">抱脸链接</a>
 ### 2.运行启动器检测并配置环境
-git拉取本仓库，使用python运行launcher.py<br/>
+使用python运行launcher.py<br/>
 ```bash
 python launcher.py
 ```
 <img width="442" height="466" alt="image" src="https://github.com/user-attachments/assets/336fe645-934f-41df-9bdb-3248ab2be070" />
-<br/>接着启动器会检测环境并安装环境。如有报错，可截图发送到Discord社区进行求助。<br/>
+<br/>接着启动器会检测环境并安装环境。如有报错，可截图发送到Discord社区进行求助。需要注意的是，此过程可能会安装一些AI大模型，这可能需要耗费很长的时间，请注意观察控制台。<br/>
 配置成功后应如图所示，显示环境已就绪。
 ### 3.配置参数并启动
-启动LinYue必须要有一个Modelfile，可选一个PPRT。这些都可以在Discord获得别人的成品。或者，你可以自行配置。<br/>
+启动LinYue必须要有一个Modelfile，可选一个PPRT。这些都可以在Discord获得别人的成品。或者，你可以自行配置。首次启动一个Modelfile可能需要下载模型，请注意控制台。以及，游戏刚启动的第一句话初始化会很慢，请耐心等待。<br/>
 渲染步数推荐在15-20左右，如果你的PPRT较为复杂，可选20-30步。但无论如何，渲染最少不能少于15步，否则将出现画面崩坏。<br/>
 启动后即可开始游戏。如果需要清除记忆，点击清除按钮。如果你想保存记忆并重新开始一段记忆，可以将本地的galgame_save.json文件改名保存，再次启动游戏就会生成新的记忆文件。另外，每次更换Modelfile，我建议你都要重置一次记忆文件，无论是删除还是备份改名。否则，可能会出现意外结果。
 
@@ -77,3 +78,5 @@ PPRT为前置提示词，应遵循Stable Diffusion提示词规则。示例如下
 best quality, masterpiece, highres, 1girl, asuka langley, vibrant colors, anime style, soft lighting, sharp focus, looking at viewer, upper body,
 ```
 需要注意的是，结尾应当有","。
+<br/>
+最后，本项目适合拥有较好显卡的用户体验，最少应当拥有12G显存才能体验最低Modelfile和PPRT。<br/>
