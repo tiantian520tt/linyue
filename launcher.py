@@ -10,7 +10,7 @@ import requests
 import webbrowser
 
 # 客户端当前版本号
-CLIENT_VERSION = "1.1.0"
+CLIENT_VERSION = "1.1.1"
 
 # 现代暗色主题色彩常量
 BG_MAIN = "#1A1B26"       # 主背景：深邃星空蓝
@@ -26,7 +26,7 @@ class GalgameLauncher:
     def __init__(self, root):
         self.root = root
         self.root.title(f"LinYue AI Game Launcher v{CLIENT_VERSION}")
-        self.root.geometry("480x560")
+        self.root.geometry("480x630") # 【修改】：微微调高了高度，用来容纳新增的组件
         self.root.configure(bg=BG_MAIN)
         self.root.resizable(False, False)
         
@@ -38,8 +38,9 @@ class GalgameLauncher:
         self.server_url_var = tk.StringVar(value="http://你的服务器IP:端口")
         self.apikey_var = tk.StringVar()
         self.pprt_path = tk.StringVar()
+        self.modelfile_path = tk.StringVar() # 【新增】：初始化接收变量
 
-        # 【新增】：在构建 UI 之前，尝试读取上一次保存的配置
+        # 【原有逻辑】：在构建 UI 之前，尝试读取上一次保存的配置
         self.load_config()
 
         self.setup_styles()
@@ -66,6 +67,7 @@ class GalgameLauncher:
                     
                 self.apikey_var.set(config.get("apikey", ""))
                 self.pprt_path.set(config.get("pprt_path", ""))
+                self.modelfile_path.set(config.get("modelfile_path", "")) # 【新增】：回填历史选过的性格文件
             except Exception as e:
                 print(f"读取历史配置失败，将使用默认值: {e}")
 
@@ -89,7 +91,7 @@ class GalgameLauncher:
         self.card_frame = tk.Frame(self.root, bg=BG_CARD, padx=15, pady=15, highlightthickness=1, highlightbackground="#292E42")
         self.card_frame.pack(fill="both", expand=True, padx=20, pady=5)
 
-        # R18 勾选框
+        # R18 勾选框 呵呵，实际测试，不勾选也能出nsfw内容……管不住，完全管不住。但是服务器上的LLM不是开放模型就完全干不出来了，你本地modelfile玩再花也没用。
         r18_cb = tk.Checkbutton(
             self.card_frame, text="开启 R18 拓展内容 (NSFW模式)", variable=self.r18_var,
             bg=BG_CARD, fg=FG_TEXT, activebackground=BG_CARD, activeforeground=FG_TITLE,
@@ -115,6 +117,19 @@ class GalgameLauncher:
         # API Key 输入框
         tk.Label(self.card_frame, text="安全通讯凭证 (API Key):", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w", pady=(8, 0))
         self.create_modern_entry(self.card_frame, self.apikey_var, show="*")
+
+        # Modelfile 角色设定文件选择
+        tk.Label(self.card_frame, text="自定义云端角色性格 (Modelfile):", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w", pady=(8, 0))
+        m_frame = tk.Frame(self.card_frame, bg=BG_CARD)
+        m_frame.pack(fill="x", pady=2)
+        m_entry = tk.Entry(m_frame, textvariable=self.modelfile_path, bg=COLOR_ENTRY, fg="white", relief="flat", insertbackground="white")
+        m_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        
+        m_browse_btn = tk.Button(
+            m_frame, text="浏览", command=lambda: self.browse_file(self.modelfile_path, [("Modelfile", "*Modelfile*"), ("All Files", "*.*")]),
+            bg="#343A40", fg="white", relief="flat", activebackground="#495057", activeforeground="white", cursor="hand2"
+        )
+        m_browse_btn.pack(side="right", padx=(8, 0))
 
         # PPRT 提示词文件选择
         tk.Label(self.card_frame, text="自定义前置画质提示词 (.pprt):", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w", pady=(8, 0))
@@ -252,6 +267,7 @@ class GalgameLauncher:
 
         import threading
         threading.Thread(target=_bg_check, daemon=True).start()
+        
     def monitor_game_process(self):
         """后台监控线程：死循环等待直到游戏进程结束"""
         if hasattr(self, 'game_process'):
@@ -277,9 +293,11 @@ class GalgameLauncher:
             except:
                 pass
             self.enable_all_children(child)
+            
     def launch_game(self):
         server_url = self.server_url_var.get().strip().rstrip('/')
         apikey = self.apikey_var.get().strip()
+        modelfile = self.modelfile_path.get().strip() # 【新增】：获取 Modelfile 路径
 
         if not server_url or "你的服务器IP" in server_url:
             messagebox.showerror("配置错误", "请先在输入框内填入正确的云端联机服务端地址！")
@@ -287,14 +305,20 @@ class GalgameLauncher:
         if not apikey:
             messagebox.showerror("安全凭证缺失", "API Key 不能为空！请输入正确的服务端通信授权秘钥。")
             return
+        
+        # 【新增校验】：判断有没有选 modelfile，没选则弹窗提示并返回
+        if not modelfile:
+            messagebox.showerror("配置错误", "请先选择自定义云端角色性格 (Modelfile) 文件，才可以启动游戏！")
+            return
 
-        # 【新增】：在这里也将 pprt_path 打包进 config，这样下次打开就能完美回填
+        # 下面是原有的打包快照与验证逻辑...
         config = {
             "r18": self.r18_var.get(), 
             "steps": self.steps_var.get(), 
             "server_url": server_url,
             "apikey": apikey,
-            "pprt_path": self.pprt_path.get() 
+            "pprt_path": self.pprt_path.get(),
+            "modelfile_path": modelfile
         }
         
         default_pprt = "best quality, masterpiece, highres, 1girl, asuka langley, vibrant colors, anime style, soft lighting, sharp focus, looking at viewer, upper body, "

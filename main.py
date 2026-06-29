@@ -10,7 +10,7 @@ import torch
 from modules.art_engine import GalgameArtEngine
 from modules.ai_backend import AdvancedAIBackend
 from modules.ui_utils import render_text_wrapped
-
+VERSION = "1.1.1"
 torch.cuda.empty_cache()
 
 class GalgameEngine:
@@ -21,7 +21,7 @@ class GalgameEngine:
         self.status_msg = ""
         
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
-        pygame.display.set_caption("LinYue AiChat Game - 1.1.0")
+        pygame.display.set_caption(f"LinYue AiChat Game - v{VERSION}")
         # 初始化混音器
         pygame.mixer.init()
         self.music_enabled = True # 默认开启
@@ -37,7 +37,7 @@ class GalgameEngine:
             "tense": "assets/music/tense.mp3"
         }
         self.music_enabled = True
-        self.music_btn_rect = pygame.Rect(100, 20, 80, 40) # 设置在右上角，宽80高40
+        self.music_btn_rect = pygame.Rect(30, 20, 80, 40) # 设置在右上角，宽80高40
         self.music_color_on = (80, 160, 100)    # 开启时的颜色（柔和绿）
         self.music_color_off = (180, 80, 80)   # 关闭时的颜色（柔和红）
         self.music_hover_color = (120, 120, 150) # 悬停时的颜色（浅灰蓝）
@@ -115,8 +115,7 @@ class GalgameEngine:
         #pygame.font.SysFont("Arial", 20)
         pygame.draw.rect(self.screen, base_color, self.music_btn_rect, border_radius=10)
         
-        # 4. 绘制文字/图标 (使用简单的 Unicode 符号)
-        # 需要确保你有一个字体对象 self.font，如果没有，可以用 pygame.font.SysFont("Arial", 20)
+        # 4. 绘制文字
         icon = "BGM" if self.music_enabled else "BGM"
         text_surf = self.font.render(icon, True, (255, 255, 255))
         
@@ -186,9 +185,9 @@ class GalgameEngine:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1: # 左键点击
+                    if event.button == 1:
                         if self.music_btn_rect.collidepoint(event.pos):
-                            self.toggle_music() # 调用你之前定义的音乐开关方法
+                            self.toggle_music() 
                 if event.type == pygame.TEXTINPUT and self.is_inputting:
                     self.user_input_buffer += event.text
                 

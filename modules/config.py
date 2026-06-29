@@ -10,6 +10,7 @@ r18_mode = False
 steps = 20
 server_url = "http://localhost:8080"
 api_key = ""
+modelfile_path = "" 
 
 # 动态加载启动器落盘的 pickle 参数
 try:
@@ -19,6 +20,7 @@ try:
     steps = cfgs.get("steps", 20)
     server_url = cfgs.get("server_url", "http://localhost:8080").rstrip('/')
     api_key = cfgs.get("apikey", "")
+    modelfile_path = cfgs.get("modelfile_path", "") # <--- 提取路径
 except Exception as e:
     print(f"[配置中心] 读取 config.pickle 失败，使用默认值。原因: {e}")
 

@@ -9,7 +9,7 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 import requests
 
-REQUIRED_CLIENT_VERSION = "1.1.0"
+REQUIRED_CLIENT_VERSION = "1.1.1"
 
 # -----------------
 # 1. 参数解析逻辑

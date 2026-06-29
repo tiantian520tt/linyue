@@ -2,6 +2,7 @@ import os
 import json
 import requests
 import threading
+import re
 from modules import config
 
 class AdvancedAIBackend:
@@ -16,13 +17,50 @@ class AdvancedAIBackend:
         if self.status_callback:
             self.status_callback(msg)
 
+    def _parse_modelfile_system(self):
+        """ 利用正则安全解析 Modelfile 中的 SYSTEM 提示词"""
+        if not hasattr(config, 'modelfile_path') or not config.modelfile_path or not os.path.exists(config.modelfile_path):
+            return ""
+        
+        try:
+            with open(config.modelfile_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 1. 优先尝试匹配多行包裹 SYSTEM """..."""
+            match = re.search(r'SYSTEM\s+"""(.*?)"""', content, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+            
+            # 2. 尝试匹配常规双引号 SYSTEM "..."
+            match = re.search(r'SYSTEM\s+"(.*?)"', content, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+                
+            # 3. 兜底匹配单行无引号
+            match = re.search(r'SYSTEM\s+(.*)', content)
+            if match:
+                return match.group(1).strip()
+        except Exception as e:
+            self._log(f"解析 Modelfile 失败: {e}")
+            
+        return ""
+
     def get_current_system_message(self):
-        alloyed_prompt = (
+        """【修改】组装带有 Modelfile 设定的融合系统提示词"""
+        base_persona = self._parse_modelfile_system()
+        
+        alloyed_prompt = ""
+        # 赋予 Modelfile 内容最高优先级
+        if base_persona:
+            alloyed_prompt += f"【角色基础设定】：\n{base_persona}\n\n"
+            
+        alloyed_prompt += (
             f"【核心长期记忆】：\n"
             f"{self.long_term_summary}\n"
             f"请在当前对话中，完美继承并展现上述长期记忆建立的好感度与剧情线索。"
         )
-        return {"role": "user", "content": alloyed_prompt}
+        # 标注为 system 角色发送，能更好地限制云端大模型不乱出戏
+        return {"role": "system", "content": alloyed_prompt}
 
     def get_next_turn(self, user_input):
         self.short_term_history.append({"role": "user", "content": user_input})

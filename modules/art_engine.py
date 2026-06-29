@@ -4,6 +4,8 @@ import torch
 import threading
 from diffusers import StableDiffusionPipeline, EulerAncestralDiscreteScheduler
 from modules import config
+import torch._dynamo
+torch._dynamo.config.suppress_errors = True
 
 class GalgameArtEngine:
     def __init__(self):
@@ -12,6 +14,14 @@ class GalgameArtEngine:
         self.pipe.safety_checker = None
         self.pipe.enable_model_cpu_offload()
         self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(self.pipe.scheduler.config)
+        # 1.1.1新增 性能优化
+        self.pipe.unet.to(memory_format=torch.channels_last)
+        if hasattr(self.pipe, "vae"):
+            self.pipe.vae.to(memory_format=torch.channels_last)
+        self.pipe.enable_vae_slicing()
+        self.pipe.enable_vae_tiling()
+        
+        #self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead", fullgraph=True)
         
         self.base_prompt_prefix = self.load_pprt()
         self.image_cache = {} 
@@ -36,9 +46,13 @@ class GalgameArtEngine:
             prompt = f"{self.base_prompt_prefix}, {mood_prompt}"
             
             negative_prompt = (
-                "lowres, bad anatomy, bad hands, text, error, missing fingers, "
-                "extra digit, fewer digits, cropped, worst quality, low quality, "
-                "normal quality, jpeg artifacts, signature, watermark, blurry"
+                "(worst quality, low quality:1.4), (bad anatomy), (deformed limbs), "
+                "bad hands, missing fingers, extra digit, fewer digits, cropped, ruined, text, "
+                "watermark, signature, username, error, blurry, jpeg artifacts, bad feet, "
+                "poorly drawn hands, poorly drawn face, mutation, extra limbs, extra arms, "
+                "extra legs, malformed limbs, mutated hands, fused fingers, too many fingers, "
+                "long neck, cross-eyed, mutated, ugly, disfigured, gross proportions, malformed, "
+                "cloning, duplicate, multiple people, multiple girls, solo focus anomaly, severed limbs"
             )
             if not config.r18_mode:
                 negative_prompt += ", nsfw"
@@ -48,8 +62,8 @@ class GalgameArtEngine:
                 negative_prompt=negative_prompt, 
                 num_inference_steps=config.steps,          
                 guidance_scale=7.5,               
-                width=768,
-                height=512
+                width=952,
+                height=496
             ).images[0]
 
             self.image_cache[mood_prompt] = img
