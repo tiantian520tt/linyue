@@ -1,0 +1,1 @@
+https://huggingface.co/genai-archive/anything-v5/tree/main
