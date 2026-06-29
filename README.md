@@ -13,7 +13,16 @@
 
 ### 启动器设计
 拥有启动器设计，智能检测和配置环境，允许一键设置参数。方便快捷。<br/>
-<img width="439" height="470" alt="image" src="https://github.com/user-attachments/assets/aad33aec-9866-490a-961a-53e57fc42498" />
+<img width="479" height="589" alt="image" src="https://github.com/user-attachments/assets/612bd54a-39c5-4c0a-8e00-2f663f783d1c" />
+
+### 服务端客户端分离设计
+允许玩家使用云端服务器计算LLM模型，在本地运算Stable Diffusion模型，以分摊计算压力，同时改善使用体验！<br/>
+你也可以在本地同时部署云端和客户端，完全本地化使用。<br/>
+<img width="340" height="39" alt="image" src="https://github.com/user-attachments/assets/7432b3ba-be21-48fd-ba58-861ccb6997d4" />
+
+### 智能音乐切换
+客户端会根据LLM返回的Mood关键字，自动取切换本地音乐。<br/>
+<img width="1269" height="710" alt="image" src="https://github.com/user-attachments/assets/6c861de3-b1cd-4bc2-a69d-4dcd8d0e2b28" />
 
 ### 友好内容创作设计
 使用Modelfile和PPRT自定义形式，允许你自己构建自己的林月！自定义说话方式、自定义外观易如反掌。你可以在我们的Discord社区获得别人制作好的成品。<br/>
@@ -25,21 +34,37 @@
 
 ## 使用教程
 ### 1.基本环境手动配置
-安装Python3.11,以及Ollama最新版本。可搜索安装包一键安装，此处不赘述。<br/>
-git拉取本仓库，创建文件夹models，并在下载模型anything-v5.safetensors存放在文件夹下。<a href="https://huggingface.co/genai-archive/anything-v5/tree/main">抱脸链接</a>
+本地和服务器安装Python3.11,在服务器上安装Ollama最新版本（若只有本地，则只需要在本地安装二者）。<a href="https://ollama.com/">Ollama</a> <a href="https://www.python.org/downloads/release/python-3110/">Python 3.11</a><br/>
+git拉取本仓库，下载模型anything-v5.safetensors存放在models文件夹下。<a href="https://huggingface.co/genai-archive/anything-v5/tree/main">抱脸链接</a>
 ### 2.运行启动器检测并配置环境
+（服务端配置请到A. 关于服务端的配置）<br/>
 使用python运行launcher.py<br/>
 ```bash
 python launcher.py
 ```
 <img width="442" height="466" alt="image" src="https://github.com/user-attachments/assets/336fe645-934f-41df-9bdb-3248ab2be070" />
+(旧版本)
+<img width="417" height="410" alt="image" src="https://github.com/user-attachments/assets/e32d99f5-6815-407a-8706-ebd856d43c87" />
+(新版本)
 <br/>接着启动器会检测环境并安装环境。如有报错，可截图发送到Discord社区进行求助。需要注意的是，此过程可能会安装一些AI大模型，这可能需要耗费很长的时间，请注意观察控制台。<br/>
-配置成功后应如图所示，显示环境已就绪。
+配置成功后应如图所示，显示环境已就绪。<br/>
 ### 3.配置参数并启动
-启动LinYue必须要有一个Modelfile，可选一个PPRT。这些都可以在Discord获得别人的成品。或者，你可以自行配置。首次启动一个Modelfile可能需要下载模型，请注意控制台。以及，游戏刚启动的第一句话初始化会很慢，请耐心等待。<br/>
+启动LinYue必须要有一个Modelfile，可选一个PPRT。这些都可以在Discord获得别人的成品。或者，你可以自行配置。首次启动一个Modelfile可能需要下载模型，请注意控制台。以及，游戏刚启动的第一句话初始化会很慢，请耐心等待。新版本更新后，Modelile改为在服务端配置，而不是在客户端配置!在构建完服务器后，你应该会得到一些ApiKey。你需要这些ApiKey才能访问你的服务器。<br/>
 渲染步数推荐在15-20左右，如果你的PPRT较为复杂，可选20-30步。但无论如何，渲染最少不能少于15步，否则将出现画面崩坏。<br/>
-启动后即可开始游戏。如果需要清除记忆，点击清除按钮。如果你想保存记忆并重新开始一段记忆，可以将本地的galgame_save.json文件改名保存，再次启动游戏就会生成新的记忆文件。另外，每次更换Modelfile，我建议你都要重置一次记忆文件，无论是删除还是备份改名。否则，可能会出现意外结果。
-
+启动后即可开始游戏。如果需要清除记忆，点击清除按钮。如果你想保存记忆并重新开始一段记忆，可以将本地的galgame_save.json文件改名保存，再次启动游戏就会生成新的记忆文件。另外，每次更换Modelfile，我建议你都要重置一次记忆文件，无论是删除还是备份改名。否则，可能会出现意外结果。<br/>
+### A. 关于服务端的配置
+服务端的启动方式：<br/>
+使用命令行启动。（在Windows下）<br/>
+```bash
+cd server
+python server.py --new-apikey
+python server.py -p [端口] -modelile [文件路径]
+```
+必填参数 -p (端口) 以及 -modelfile (文件路径)。<br/>
+执行--new-apikey后你将获得5个APIKEY。请记住它们，它们用于你在客户端验证身份。<br/>
+其余可选的参数：<br/>
+<img width="1039" height="269" alt="image" src="https://github.com/user-attachments/assets/7d9590f9-342f-4b8c-a6b1-28f34de754c6" />
+如果你的电脑配置低，显存不足，只允许运行Stable Diffusion的话，使用云端服务器是最好的解决方案！你可以购买付费的小时计云GPU服务器来配置并保存镜像，这是一种可行方案。或者，去我们的Discord社区转转，那里可能有免费的公益服务器。
 ## 创作者指南
 ### Modelfile创作
 Modelfile应该遵循Ollama规则，呈现如下格式。<br/>
@@ -79,4 +104,6 @@ best quality, masterpiece, highres, 1girl, asuka langley, vibrant colors, anime 
 ```
 需要注意的是，结尾应当有","。
 <br/>
-最后，本项目适合拥有较好显卡的用户体验，最少应当拥有12G显存才能体验最低Modelfile和PPRT。<br/>
+最后，若在本地完全部署本项目，则本项目适合拥有较好显卡的用户体验，最少应当拥有12G显存才能体验最低Modelfile和PPRT。<br/>
+如果您有条件使用云端服务，将LLM模型配置在云端，那么，您在本地最低只需要4G显存就可以体验本项目！但前提是，您的显卡可以流畅运行Stable Diffusion文生图功能。
+欢迎前往我们的Discord社区，那里有许多性能优化方案。欢迎您在Discord社区里做出贡献。本项目暂不支持PR，如果您想为本项目做出贡献，请在Discord社区联系我们。感谢您的支持！
