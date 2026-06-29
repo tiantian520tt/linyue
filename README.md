@@ -1,5 +1,6 @@
 # LinYue AiChat Game
 林月，基于Stable Diffusion以及LLM实现的本地AI生成ACG游戏，拥有启动器指引进行部署，上手难度较低。<br/>
+本项目的README文件是极为简单的配置教程。需要更进一步体验LinYue，请移步Discord社区。
 <a href="https://discord.gg/VseVN2aRBf">我们的Discord社区</a> 
 <a href="https://qun.qq.com/universal-share/share?ac=1&svctype=5&tempid=h5_group_info&busi_data=eyJncm91cENvZGUiOiIxMDM4MzY4NDA4In0%3D" target="_blank">加入QQ群1038368408</a>
 ## 特色
