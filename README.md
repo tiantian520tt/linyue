@@ -43,15 +43,17 @@ git拉取本仓库，下载模型anything-v5.safetensors存放在models文件夹
 python launcher.py
 ```
 <img width="442" height="466" alt="image" src="https://github.com/user-attachments/assets/336fe645-934f-41df-9bdb-3248ab2be070" />
-(旧版本)
+(旧版本)<br/>
 <img width="417" height="410" alt="image" src="https://github.com/user-attachments/assets/e32d99f5-6815-407a-8706-ebd856d43c87" />
-(新版本)
+(新版本)<br/>
 <br/>接着启动器会检测环境并安装环境。如有报错，可截图发送到Discord社区进行求助。需要注意的是，此过程可能会安装一些AI大模型，这可能需要耗费很长的时间，请注意观察控制台。<br/>
 配置成功后应如图所示，显示环境已就绪。<br/>
+
 ### 3.配置参数并启动
 启动LinYue必须要有一个Modelfile，可选一个PPRT。这些都可以在Discord获得别人的成品。或者，你可以自行配置。首次启动一个Modelfile可能需要下载模型，请注意控制台。以及，游戏刚启动的第一句话初始化会很慢，请耐心等待。新版本更新后，Modelile改为在服务端配置，而不是在客户端配置!在构建完服务器后，你应该会得到一些ApiKey。你需要这些ApiKey才能访问你的服务器。<br/>
 渲染步数推荐在15-20左右，如果你的PPRT较为复杂，可选20-30步。但无论如何，渲染最少不能少于15步，否则将出现画面崩坏。<br/>
 启动后即可开始游戏。如果需要清除记忆，点击清除按钮。如果你想保存记忆并重新开始一段记忆，可以将本地的galgame_save.json文件改名保存，再次启动游戏就会生成新的记忆文件。另外，每次更换Modelfile，我建议你都要重置一次记忆文件，无论是删除还是备份改名。否则，可能会出现意外结果。<br/>
+
 ### A. 关于服务端的配置
 服务端的启动方式：<br/>
 使用命令行启动。（在Windows下）<br/>
@@ -64,7 +66,7 @@ python server.py -p [端口] -modelile [文件路径]
 执行--new-apikey后你将获得5个APIKEY。请记住它们，它们用于你在客户端验证身份。<br/>
 其余可选的参数：<br/>
 <img width="1039" height="269" alt="image" src="https://github.com/user-attachments/assets/7d9590f9-342f-4b8c-a6b1-28f34de754c6" />
-如果你的电脑配置低，显存不足，只允许运行Stable Diffusion的话，使用云端服务器是最好的解决方案！你可以购买付费的小时计云GPU服务器来配置并保存镜像，这是一种可行方案。或者，去我们的Discord社区转转，那里可能有免费的公益服务器。
+如果你的电脑配置低，显存不足，只允许运行Stable Diffusion的话，使用云端服务器是最好的解决方案！你可以购买付费的小时计云GPU服务器来配置并保存镜像，这是一种可行方案。或者，去我们的Discord社区转转，那里可能有免费的公益服务器。<br/>
 ## 创作者指南
 ### Modelfile创作
 Modelfile应该遵循Ollama规则，呈现如下格式。<br/>
