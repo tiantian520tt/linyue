@@ -67,6 +67,7 @@ python server.py -p [端口] -modelile [文件路径]
 执行--new-apikey后你将获得5个APIKEY。请记住它们，它们用于你在客户端验证身份。<br/>
 其余可选的参数：<br/>
 <img width="1039" height="269" alt="image" src="https://github.com/user-attachments/assets/7d9590f9-342f-4b8c-a6b1-28f34de754c6" />
+(注意，新版本-t参数已经被修改为每分钟单个apikey可请求的最多次数。默认为0，则为无限制。)
 如果你的电脑配置低，显存不足，只允许运行Stable Diffusion的话，使用云端服务器是最好的解决方案！你可以购买付费的小时计云GPU服务器来配置并保存镜像，这是一种可行方案。或者，去我们的Discord社区转转，那里可能有免费的公益服务器。<br/>
 ## 创作者指南
 ### Modelfile创作
