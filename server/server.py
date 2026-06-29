@@ -17,7 +17,8 @@ REQUIRED_CLIENT_VERSION = "1.1.1"
 parser = argparse.ArgumentParser(description="LinYue Galgame 云端 AI 服务端")
 parser.add_argument('-p', type=int, help="启动服务器的端口")
 parser.add_argument('-modelfile', type=str, help="启动ollama将使用的modelfile绝对路径")
-parser.add_argument('-t', type=int, default=5, help="针对每个apikey的请求冷却时间(秒)，默认为5s")
+# 【修改】：取消注释 -t，并将其含义修改为每分钟允许单个 APIKEY 请求的次数
+parser.add_argument('-t', type=int, default=0, help="单个 APIKEY 每分钟允许的最大请求次数，默认为 0 (无限制)")
 parser.add_argument('-ip', type=str, help="限制单个IP地址允许访问服务器")
 parser.add_argument('-ips', type=str, help="限制文件内全部IP允许访问服务器")
 parser.add_argument('-maxr', type=int, default=0, help="服务器每小时允许的最大请求次数，默认为无限制")
@@ -66,8 +67,8 @@ if args.ips and os.path.exists(args.ips):
             if line.strip(): allowed_ips.add(line.strip())
 
 # 频率控制状态
-request_timestamps = [] # 记录过去一小时内的所有请求时间（用于 -maxr）
-key_last_used = {}      # 记录每个 key 上次调用的时间（用于 -t）
+request_timestamps = []       # 记录过去一小时内的所有请求时间（用于全局 -maxr）
+key_request_timestamps = {}   # 【修改】：记录每个 key 在最近一分钟(60s)内的所有请求时间戳列表（用于 -t）
 
 # 日志配置
 log_file_path = None
@@ -126,9 +127,12 @@ def check_status():
     if args.maxr > 0 and len(request_timestamps) >= args.maxr:
         return "103"
     
-    last_used = key_last_used.get(apikey, 0)
-    if now - last_used < args.t:
-        return "103"
+    # 【修改】：针对单个 APIKEY 的每分钟频率限制校验（不写入数据，只做预检）
+    if args.t > 0:
+        timestamps = key_request_timestamps.get(apikey, [])
+        timestamps = [t for t in timestamps if now - t <= 60] # 只保留 60 秒内的请求
+        if len(timestamps) >= args.t:
+            return "103"
 
     # 全通过
     return "200"
@@ -156,7 +160,7 @@ def handle_linyue():
         print(log_msg)
         return jsonify({"error": "Invalid APIKEY"}), 401
 
-    # 3. 验证请求频率
+    # 3. 验证全局每小时请求频率
     now = time.time()
     global request_timestamps
     request_timestamps = [t for t in request_timestamps if now - t <= 3600]
@@ -164,12 +168,20 @@ def handle_linyue():
     if args.maxr > 0 and len(request_timestamps) >= args.maxr:
         return jsonify({"error": "Hourly rate limit reached"}), 429
     
-    if now - key_last_used.get(apikey, 0) < args.t:
-        return jsonify({"error": f"Please wait {args.t} seconds between requests"}), 429
+    # 【修改】：限制单个 API 密钥每分钟的请求总次数
+    if args.t > 0:
+        timestamps = key_request_timestamps.get(apikey, [])
+        timestamps = [t for t in timestamps if now - t <= 60] # 清理超过 1 分钟的历史戳
+        
+        if len(timestamps) >= args.t:
+            return jsonify({"error": f"Rate limit exceeded. Maximum {args.t} requests per minute allowed per APIKEY."}), 429
+        
+        # 验证通过，记录当前时间戳
+        timestamps.append(now)
+        key_request_timestamps[apikey] = timestamps
 
-    # 记录此次请求，更新限流器
+    # 记录此次请求，更新全局限流器
     request_timestamps.append(now)
-    key_last_used[apikey] = now
 
     # 4. 转发给 Ollama
     try:
@@ -180,7 +192,7 @@ def handle_linyue():
         )
         ollama_data = ollama_resp.json()
 
-        # 5. 按照标准格式写入成功日志
+        # 5. 按照 standard 格式写入成功日志
         log_msg = (
             f"[{now_str}]\n"
             f"  - [{client_ip}]\n"
