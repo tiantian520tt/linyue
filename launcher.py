@@ -3,76 +3,71 @@ from tkinter import filedialog, messagebox
 from tkinter import ttk
 import sys
 import subprocess
-import pickle
+#import pickle
+import json # 2026.6.30 解决可能的RCE安全问题
 import shutil
 import os
 import requests
 import webbrowser
 
-# 客户端当前版本号
-CLIENT_VERSION = "1.1.1"
+CLIENT_VERSION = "1.2.0"
 
-# 现代暗色主题色彩常量
-BG_MAIN = "#1A1B26"       # 主背景：深邃星空蓝
-BG_CARD = "#24283B"       # 卡片背景：科技灰蓝
-FG_TEXT = "#A9B1D6"       # 主文本：极光银灰
-FG_TITLE = "#7AA2F7"      # 标题/强调色：霓虹晶蓝
-COLOR_DISCORD = "#5865F2" # Discord 官方专属蓝紫色
-COLOR_GREEN = "#9ECE6A"   # 成功/启动：生机盎然绿
-COLOR_RED = "#F7768E"     # 警告/重置：珊瑚朱红
-COLOR_ENTRY = "#1F2335"   # 输入框背景：夜幕暗沉
+BG_MAIN = "#1A1B26"       
+BG_CARD = "#24283B"       
+FG_TEXT = "#A9B1D6"       
+FG_TITLE = "#7AA2F7"      
+COLOR_DISCORD = "#5865F2" 
+COLOR_GREEN = "#9ECE6A"   
+COLOR_RED = "#F7768E"     
+COLOR_ENTRY = "#1F2335"   
 
 class GalgameLauncher:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"LinYue AI Game Launcher v{CLIENT_VERSION}")
-        self.root.geometry("480x630") # 【修改】：微微调高了高度，用来容纳新增的组件
+        self.root.title(f"LinYue AIChat Game Launcher v{CLIENT_VERSION}")
+        self.root.geometry("480x780") 
         self.root.configure(bg=BG_MAIN)
         self.root.resizable(False, False)
         
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # 变量初始化
         self.r18_var = tk.BooleanVar(value=False)
         self.steps_var = tk.IntVar(value=20)
         self.server_url_var = tk.StringVar(value="http://你的服务器IP:端口")
         self.apikey_var = tk.StringVar()
         self.pprt_path = tk.StringVar()
-        self.modelfile_path = tk.StringVar() # 【新增】：初始化接收变量
+        self.modelfile_path = tk.StringVar() 
+        self.enable_summary_var = tk.BooleanVar(value=True) 
+        self.max_msgs_var = tk.IntVar(value=12)             
+        self.low_vram_var = tk.BooleanVar(value=False) 
+        self.char_name_var = tk.StringVar(value="林月") 
 
-        # 【原有逻辑】：在构建 UI 之前，尝试读取上一次保存的配置
         self.load_config()
-
         self.setup_styles()
         self.setup_ui()
-        
-        # 延迟 100 毫秒触发。确保 root.mainloop() 真正跑起来之后，再切入初始化流
         self.root.after(100, self.initialize_launcher)
 
     def load_config(self):
-        """读取本地配置文件并回填历史记录"""
-        if os.path.exists("config.pickle"):
+        if os.path.exists("config.json"):
             try:
-                with open("config.pickle", "rb") as f:
-                    config = pickle.load(f)
+                with open("config.json", "rb") as f:
+                    config = json.load(f)
                 
-                # 安全地获取并设置各项参数（如果有的话）
                 self.r18_var.set(config.get("r18", False))
                 self.steps_var.set(config.get("steps", 20))
-                
-                # 只有当保存过有意义的URL时才回填，否则保留默认提示文字
                 saved_url = config.get("server_url", "")
-                if saved_url:
-                    self.server_url_var.set(saved_url)
-                    
+                if saved_url: self.server_url_var.set(saved_url)
                 self.apikey_var.set(config.get("apikey", ""))
                 self.pprt_path.set(config.get("pprt_path", ""))
-                self.modelfile_path.set(config.get("modelfile_path", "")) # 【新增】：回填历史选过的性格文件
+                self.modelfile_path.set(config.get("modelfile_path", "")) 
+                self.enable_summary_var.set(config.get("enable_summary", True)) 
+                self.max_msgs_var.set(config.get("max_short_term_msgs", 12))    
+                self.low_vram_var.set(config.get("low_vram_mode", False)) 
+                self.char_name_var.set(config.get("char_name", "林月")) 
             except Exception as e:
                 print(f"读取历史配置失败，将使用默认值: {e}")
-
+    
     def setup_styles(self):
-        """初始化现代扁平化组件样式"""
         style = ttk.Style()
         style.theme_use('default')
         style.configure('.', background=BG_MAIN, foreground=FG_TEXT, font=("Microsoft YaHei", 10))
@@ -80,45 +75,63 @@ class GalgameLauncher:
         style.configure("Card.TLabelframe.Label", background=BG_CARD, foreground=FG_TITLE, font=("Microsoft YaHei", 10, "bold"))
 
     def setup_ui(self):
-        # 1. 顶部状态栏区域
         self.status_label = tk.Label(
             self.root, text="系统等待初始化...", fg=FG_TITLE, bg=BG_MAIN, 
             font=("Microsoft YaHei", 12, "bold"), pady=10
         )
         self.status_label.pack(fill="x")
 
-        # 2. 主参数设置卡片
         self.card_frame = tk.Frame(self.root, bg=BG_CARD, padx=15, pady=15, highlightthickness=1, highlightbackground="#292E42")
         self.card_frame.pack(fill="both", expand=True, padx=20, pady=5)
 
-        # R18 勾选框 呵呵，实际测试，不勾选也能出nsfw内容……管不住，完全管不住。但是服务器上的LLM不是开放模型就完全干不出来了，你本地modelfile玩再花也没用。
         r18_cb = tk.Checkbutton(
             self.card_frame, text="开启 R18 拓展内容 (NSFW模式)", variable=self.r18_var,
             bg=BG_CARD, fg=FG_TEXT, activebackground=BG_CARD, activeforeground=FG_TITLE,
             selectcolor=COLOR_ENTRY, font=("Microsoft YaHei", 10, "bold")
         )
-        r18_cb.pack(anchor="w", pady=(0, 10))
+        r18_cb.pack(anchor="w", pady=(0, 2))
 
-        # 渲染步数滑动条
+        low_vram_cb = tk.Checkbutton(
+            self.card_frame, text="开启低显存模式 (大幅降速防爆显存)", variable=self.low_vram_var,
+            bg=BG_CARD, fg=COLOR_RED, activebackground=BG_CARD, activeforeground=FG_TITLE,
+            selectcolor=COLOR_ENTRY, font=("Microsoft YaHei", 9, "bold")
+        )
+        low_vram_cb.pack(anchor="w", pady=(0, 5))
+
+        mem_frame = tk.Frame(self.card_frame, bg=BG_CARD)
+        mem_frame.pack(fill="x", pady=(0, 5))
+        tk.Checkbutton(
+            mem_frame, text="开启记忆定期总结", variable=self.enable_summary_var,
+            bg=BG_CARD, fg=FG_TEXT, activebackground=BG_CARD, activeforeground=FG_TITLE,
+            selectcolor=COLOR_ENTRY, font=("Microsoft YaHei", 10, "bold")
+        ).pack(side="left", anchor="w")
+        tk.Label(mem_frame, text="触发总结对话条数 (12-100):", bg=BG_CARD, fg=FG_TEXT).pack(side="right")
+        
+        tk.Scale(
+            self.card_frame, from_=12, to=100, orient="horizontal", variable=self.max_msgs_var,
+            bg=BG_CARD, fg=FG_TITLE, highlightthickness=0, troughcolor=COLOR_ENTRY,
+            activebackground=FG_TITLE, bd=0
+        ).pack(fill="x", pady=(0, 10))
+
         tk.Label(self.card_frame, text="AI 画面渲染步数 (Steps):", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w")
         scale_frame = tk.Frame(self.card_frame, bg=BG_CARD)
         scale_frame.pack(fill="x", pady=(2, 10))
         steps_scale = tk.Scale(
-            scale_frame, from_=10, to=30, orient="horizontal", variable=self.steps_var,
+            scale_frame, from_=5, to=30, orient="horizontal", variable=self.steps_var,
             bg=BG_CARD, fg=FG_TITLE, highlightthickness=0, troughcolor=COLOR_ENTRY,
             activebackground=FG_TITLE, bd=0
         )
         steps_scale.pack(fill="x")
 
-        # 服务器地址输入框
+        tk.Label(self.card_frame, text="自定义 AI 角色名字:", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w")
+        self.create_modern_entry(self.card_frame, self.char_name_var)
+
         tk.Label(self.card_frame, text="云端联机服务器地址:", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w")
         self.create_modern_entry(self.card_frame, self.server_url_var)
 
-        # API Key 输入框
         tk.Label(self.card_frame, text="安全通讯凭证 (API Key):", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w", pady=(8, 0))
         self.create_modern_entry(self.card_frame, self.apikey_var, show="*")
 
-        # Modelfile 角色设定文件选择
         tk.Label(self.card_frame, text="自定义云端角色性格 (Modelfile):", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w", pady=(8, 0))
         m_frame = tk.Frame(self.card_frame, bg=BG_CARD)
         m_frame.pack(fill="x", pady=2)
@@ -131,7 +144,6 @@ class GalgameLauncher:
         )
         m_browse_btn.pack(side="right", padx=(8, 0))
 
-        # PPRT 提示词文件选择
         tk.Label(self.card_frame, text="自定义前置画质提示词 (.pprt):", bg=BG_CARD, fg=FG_TEXT).pack(anchor="w", pady=(8, 0))
         p_frame = tk.Frame(self.card_frame, bg=BG_CARD)
         p_frame.pack(fill="x", pady=2)
@@ -144,11 +156,9 @@ class GalgameLauncher:
         )
         browse_btn.pack(side="right", padx=(8, 0))
 
-        # 3. 底部功能按钮区域
         btn_zone = tk.Frame(self.root, bg=BG_MAIN, pady=15)
         btn_zone.pack(fill="x", padx=20)
 
-        # 一键启动游戏按钮
         self.launch_btn = tk.Button(
             btn_zone, text="🚀 一键验证并开启游戏", command=self.launch_game, state="disabled",
             bg="#2E3A32", fg="#4E7A5A", relief="flat", font=("Microsoft YaHei", 11, "bold"),
@@ -156,11 +166,9 @@ class GalgameLauncher:
         )
         self.launch_btn.pack(fill="x", pady=5, ipady=6)
 
-        # 辅助操作组合行 (Discord 群组 + 记忆清理)
         sub_btn_frame = tk.Frame(btn_zone, bg=BG_MAIN)
         sub_btn_frame.pack(fill="x", pady=5)
 
-        # Discord 加入群组专属按钮
         discord_btn = tk.Button(
             sub_btn_frame, text="💬 加入 Discord 官方群", command=self.open_discord_link,
             bg=COLOR_DISCORD, fg="white", relief="flat", font=("Microsoft YaHei", 9, "bold"),
@@ -193,14 +201,13 @@ class GalgameLauncher:
             messagebox.showerror("打开失败", f"无法唤起系统浏览器，请手动复制链接:\n{discord_url}")
 
     def initialize_launcher(self):
-        """控制生命周期的主管道：先弹窗，后安全切入环境检查线程"""
         messagebox.showinfo("欢迎回来", f"LinYue 客户端已成功加载！当前版本：v{CLIENT_VERSION}\n请保持启动器开启以维持云端握手。")
         self.check_environment()
 
     def clear_memory(self):
         save_file = "galgame_save.json"
         if os.path.exists(save_file):
-            if messagebox.askyesno("确认重置", "确定要彻底清除与林月的所有聊天记忆吗？该操作不可逆！"):
+            if messagebox.askyesno("确认重置", "确定要彻底清除与角色的所有聊天记忆吗？该操作不可逆！"):
                 try:
                     os.remove(save_file)
                     messagebox.showinfo("清理完毕", "本地剧情记忆已清空，下次启动将开启全新的故事线。")
@@ -210,10 +217,9 @@ class GalgameLauncher:
             messagebox.showinfo("提示", "当前未检测到任何本地历史记忆存档。")
 
     def on_closing(self):
-        # 检查游戏进程是否存在且仍在运行
         if hasattr(self, 'game_process') and self.game_process.poll() is None:
             if messagebox.askyesno("退出确认", "游戏还在运行中，关闭启动器将同时强制退出游戏，确定吗？"):
-                self.game_process.terminate() # 强制关闭游戏
+                self.game_process.terminate() 
                 self.root.destroy()
         else:
             if messagebox.askokcancel("退出", "确定要关闭启动器吗？"):
@@ -225,23 +231,19 @@ class GalgameLauncher:
             target_var.set(filename)
 
     def check_environment(self):
-        """后台子线程环境校验"""
         def _bg_check():
             try:
                 self.root.after(0, lambda: self.status_label.config(text="⚙️ 正在检查运行环境...", fg=FG_TITLE))
-                
                 if sys.version_info < (3, 11):
                     raise Exception("当前 Python 版本过低，请升级至 Python 3.11+。")
 
-                # 1. 自动校准与检测 PyTorch 的 CUDA 12.1 环境
                 self.root.after(0, lambda: self.status_label.config(text="⚡ 正在对齐 PyTorch GPU 加速依赖...", fg="#E0AF68"))
                 subprocess.check_call([
                     sys.executable, "-m", "pip", "install", 
-                    "torch", "torchvision", 
+                    "torch==2.5.1", "torchvision", 
                     "--index-url", "https://download.pytorch.org/whl/cu121"
                 ])
                 
-                # 2. 检查第三方 requirements 模块
                 req_file = "requirements.txt"
                 if os.path.exists(req_file):
                     self.root.after(0, lambda: self.status_label.config(text="📦 正在补齐第三方扩展组件...", fg="#E0AF68"))
@@ -267,37 +269,15 @@ class GalgameLauncher:
 
         import threading
         threading.Thread(target=_bg_check, daemon=True).start()
-        
-    def monitor_game_process(self):
-        """后台监控线程：死循环等待直到游戏进程结束"""
-        if hasattr(self, 'game_process'):
-            self.game_process.wait() # 阻塞当前线程，直到游戏关闭
-            # 游戏关闭后，通知主线程恢复 UI
-            self.root.after(0, self.restore_ui_state)
 
-    def restore_ui_state(self):
-        """主线程回调：恢复按钮和界面"""
-        self.launch_btn.config(
-                        text="🚀 一键验证并开启游戏",
-                        state="normal", bg=COLOR_GREEN, fg="black", 
-                        activebackground="#A9E380", activeforeground="black"
-                    )
-        self.enable_all_children(self.card_frame)
-        self.status_label.config(text="✨ 游戏已关闭，随时可再次启动", fg=COLOR_GREEN)
-
-    def enable_all_children(self, parent):
-        """递归恢复所有控件的状态"""
-        for child in parent.winfo_children():
-            try:
-                child.configure(state='normal')
-            except:
-                pass
-            self.enable_all_children(child)
-            
     def launch_game(self):
+        # 判断角色名字是否为空，为空则默认林月并且更新UI，我tm服了，为什么会有人不写名字啊？
+        if not self.char_name_var.get().strip():
+            self.char_name_var.set("林月")
+
         server_url = self.server_url_var.get().strip().rstrip('/')
         apikey = self.apikey_var.get().strip()
-        modelfile = self.modelfile_path.get().strip() # 【新增】：获取 Modelfile 路径
+        modelfile = self.modelfile_path.get().strip()
 
         if not server_url or "你的服务器IP" in server_url:
             messagebox.showerror("配置错误", "请先在输入框内填入正确的云端联机服务端地址！")
@@ -306,19 +286,21 @@ class GalgameLauncher:
             messagebox.showerror("安全凭证缺失", "API Key 不能为空！请输入正确的服务端通信授权秘钥。")
             return
         
-        # 【新增校验】：判断有没有选 modelfile，没选则弹窗提示并返回
         if not modelfile:
-            messagebox.showerror("配置错误", "请先选择自定义云端角色性格 (Modelfile) 文件，才可以启动游戏！")
-            return
+            if not messagebox.askyesno("警告", "没有选中 Modelfile 时，若服务器为空白服务器，则会出现意料之外的错误。\n\n要继续吗？"):
+                return 
 
-        # 下面是原有的打包快照与验证逻辑...
         config = {
             "r18": self.r18_var.get(), 
             "steps": self.steps_var.get(), 
             "server_url": server_url,
             "apikey": apikey,
             "pprt_path": self.pprt_path.get(),
-            "modelfile_path": modelfile
+            "modelfile_path": modelfile,
+            "enable_summary": self.enable_summary_var.get(), 
+            "max_short_term_msgs": self.max_msgs_var.get(),
+            "low_vram_mode": self.low_vram_var.get(),
+            "char_name": self.char_name_var.get().strip()   # 此处无需再使用 or "林月"，因为上方已经处理完毕
         }
         
         default_pprt = "best quality, masterpiece, highres, 1girl, asuka langley, vibrant colors, anime style, soft lighting, sharp focus, looking at viewer, upper body, "
@@ -329,8 +311,8 @@ class GalgameLauncher:
                 with open("config.pprt", "w", encoding="utf-8") as f:
                     f.write(default_pprt)
             
-            with open("config.pickle", "wb") as f:
-                pickle.dump(config, f)
+            with open("config.json", "w", encoding="utf-8") as f:
+                json.dump(config, f, ensure_ascii=False, indent=4)
         except Exception as e:
             messagebox.showerror("磁盘写入故障", f"快照保存失败: {e}")
             return
@@ -371,20 +353,39 @@ class GalgameLauncher:
             return
 
         try:
-            # 保存进程句柄
             self.game_process = subprocess.Popen([sys.executable, "main.py"])
-            
             self.launch_btn.config(text="🎮 游戏正在运行中...", state="disabled", bg="#2B2E42", fg="#565F89")
             self.disable_all_children(self.card_frame)
             
-            # 启动一个后台线程专门监控游戏进程的生死
             import threading
             threading.Thread(target=self.monitor_game_process, daemon=True).start()
-            
-            messagebox.showinfo("联机建立成功", "游戏已被安全唤醒！")
         except Exception as e:
             messagebox.showerror("进程拉起失败", f"无法加载 main.py: {e}")
+    # ==========================================
+    # 喜报 今天改了3个bug 2026.6.30
+    # ==========================================
+    def monitor_game_process(self):
+        if hasattr(self, 'game_process'):
+            self.game_process.wait() 
+            self.root.after(0, self.restore_ui_state)
 
+    def restore_ui_state(self):
+        self.launch_btn.config(
+            text="🚀 一键验证并开启游戏",
+            state="normal", bg=COLOR_GREEN, fg="black", 
+            activebackground="#A9E380", activeforeground="black"
+        )
+        self.enable_all_children(self.card_frame)
+        self.status_label.config(text="✨ 游戏已关闭，随时可再次启动", fg=COLOR_GREEN)
+
+    def enable_all_children(self, parent):
+        for child in parent.winfo_children():
+            try:
+                child.configure(state='normal')
+            except:
+                pass
+            self.enable_all_children(child)
+            
     def disable_all_children(self, parent):
         for child in parent.winfo_children():
             try:

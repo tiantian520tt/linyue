@@ -1,7 +1,7 @@
 import pygame
 
 def render_text_wrapped(surface, text, font, color, rect):
-    """完美复刻原有的文本自动换行渲染逻辑"""
+    """八嘎，改了半天没改对，数学白学"""
     if not text: 
         return
     x, y = rect.topleft
