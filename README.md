@@ -5,8 +5,12 @@
 <a href="https://qun.qq.com/universal-share/share?ac=1&svctype=5&tempid=h5_group_info&busi_data=eyJncm91cENvZGUiOiIxMDM4MzY4NDA4In0%3D" target="_blank">加入QQ群1038368408</a>
 ## 特色
 ### 内容完全由Ai生成
-内容完全由Ai生成，你输入的文本，被Ai响应后生成文本和图片，一切都是未知的。<br/>
+内容完全由Ai生成，你输入的文本，被Ai响应后生成文本/图片/语音，一切都是未知的。<br/>
 <img width="1263" height="711" alt="image" src="https://github.com/user-attachments/assets/3fd0f1ff-00ff-4b79-b274-3f58c2b45ad9" />
+
+### 语音系统就绪
+已经通过Voicevox软件实现TTS！（1.3.0新更新）<br/>
+<img width="1015" height="76" alt="image" src="https://github.com/user-attachments/assets/7c55ebb4-6b2e-47c4-bedf-a150a6d91eb8" />
 
 
 ### Ai状态栏
@@ -44,7 +48,7 @@
 <img width="751" height="418" alt="image" src="https://github.com/user-attachments/assets/f4cfc64e-86c4-4679-aeee-3019124e98d4" />
 
 ### 未来展望
-目前支持自定义LLM模型。未来将支持自定义Stable Diffusion模型，实现进一步自定义。另外，我们在未来将加入语音自定义模块可供开关，优化对话体验。最重要的是，本项目开源且永远免费！本地部署是我们开发者的本钱。<br/>
+目前支持自定义LLM模型。未来将支持自定义Stable Diffusion模型，实现进一步自定义。最重要的是，本项目开源且永远免费！本地部署是我们开发者的本钱。<br/>
 <img width="1239" height="578" alt="image" src="https://github.com/user-attachments/assets/98e6728b-fea3-4af8-8890-59fa7189b038" />
 
 ---
@@ -89,13 +93,17 @@ python launcher.py
 ```
 无需任何参数，即可启动启动器。启动器启动后，会第一时间配置环境。您可以在终端看到配置情况，如果有报错，请截图求助。<br/>
 <img width="468" height="794" alt="image" src="https://github.com/user-attachments/assets/8cf0d055-b701-4236-a070-ea44260918c1" /><br/>
-成功启动后您可以看见如上图所示的窗口。还记得刚才需要您记住的Apikey吗？请输入它。请务必记住，在服务器地址这一栏上输入你的服务器IP+你刚才设置的-p端口。（如果您是本地部署，ip为127.0.0.1）接着，可以根据需要配置好您的参数。随即点击下方启动按钮即可启动游戏！<br/>
+成功启动后您可以看见如上图所示的窗口。还记得刚才需要您记住的Apikey吗？请输入它。请务必记住，在服务器地址这一栏上输入你的服务器IP+你刚才设置的-p端口。（如果您是本地部署，ip为127.0.0.1）接着，可以根据需要配置好您的参数。随即点击下方启动按钮即可启动游戏！关于新版本的TTS模块，您在这里暂时不用启动它。您可以在下方附录中找到启用的方式。<br/>
 *关于Modelfile: 配置AI语言规范的文件，在客户端不作用于Ollama，而是交给游戏解析。若您的服务器应用了一个含有人格描述内容/剧情设计等详细内容的modelfile，那么我建议您在本地不要再使用modelfile，否则会引起奇怪的效果。如果您的服务器使用的是空白modelfile（modelfile文件中的system提示词只有语言规范，没有个性设计等内容），那么您本地请务必使用一个您喜欢的modelfile。* <br/>
 *关于pprt：配置ai作图的提示词。您可以在最后的创作者指南中找到配置方法。您可以下载别人配置好的pprt使用。* <br/>
 *关于低显存模式：显存低于16G，均需要开启低显存模式。16G及以上可选择关闭此模式，可以大大加快响应速度。* <br/>
 *关于记忆总结：推荐开启，除非您使用了超长上下文的模型以及拥有一块超大显存的显卡。建议设置在12-18轮开启总结。* <br/>
 *关于渲染步数：目前引擎采用DPM++采样方法，推荐使用15-20步取得最佳效果。* <br/>
 *关于存档：您每次游戏，都会不停自动保存存档。如果您切换了modelfile，建议您重置存档。如果您想保存/切换存档，可自行替换目录下的galgame_save.json。* <br/>
+### 附：TTS模块启用
+TTS模块启用需要单独安装软件。您在勾选“开启二次元日语配音”选项后，会自动检测并帮助您前往Voicevox官网下载软件。下载后请安装软件，安装软件后启动，随即将它挂在后台，无需处理。软件会自动开启端口。<br/>
+再勾选选项，若可正常勾选，则说明软件配置成功。
+需要注意的是，TTS模块需要耗费您更多的显存（大约1G）。如果您在原本使用情形下显存吃紧，那么暂时先不用使用TTS模块。没有TTS的游戏体验已经足够好了。
 ## 使用教程（旧）
 （下方为旧版本教程 可跳过 直接查看上面的新版教程）
 ### 1.基本环境手动配置
@@ -171,6 +179,6 @@ best quality, masterpiece, highres, 1girl, asuka langley, vibrant colors, anime 
 ```
 需要注意的是，结尾应当有","。
 <br/>
-最后，若在本地完全部署本项目，则本项目适合拥有较好显卡的用户体验，最少应当拥有10G显存才能体验最低Modelfile和PPRT。<br/>
-如果您有条件使用云端服务，将LLM模型配置在云端，那么，您在本地最低只需要4G显存就可以体验本项目！但前提是，您的显卡可以流畅运行Stable Diffusion文生图功能。
+最后，若在本地完全部署本项目，则本项目适合拥有较好显卡的用户体验，最少应当拥有10G显存才能体验最低Modelfile和PPRT。如果您需要体验TTS，则最少需要11G显存，和不少于4核心和2.5GHz主频的CPU。**AMD显卡/INTEL显卡暂时不支持本项目** <br/>
+如果您有条件使用云端服务，将LLM模型配置在云端，那么，您在本地最低只需要4G显存就可以体验本项目！但前提是，您的显卡可以流畅运行Stable Diffusion文生图功能。<br/>
 欢迎前往我们的Discord社区，那里有许多性能优化方案。欢迎您在Discord社区里做出贡献。本项目暂不支持PR，如果您想为本项目做出贡献，请在Discord社区联系我们。感谢您的支持！
