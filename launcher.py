@@ -10,7 +10,7 @@ import os
 import requests
 import webbrowser
 
-CLIENT_VERSION = "1.3.0"
+CLIENT_VERSION = "1.4.0"
 
 BG_MAIN = "#1A1B26"       
 BG_CARD = "#24283B"       

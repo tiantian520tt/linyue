@@ -7,9 +7,11 @@
 
 1.3.0更新了tts。需要再配合voicevox使用。voicevox是目前最适合的tts，低占用高性能，且效果最佳。
 为了保证cpu不被吃满，降低帧率到了24帧。（后来改为30帧，因为24帧好慢啊）
+
+1.4.0 为了美术效果直接干他妈120帧去了
 """
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 WIDTH, HEIGHT = 1280, 720
 
 class GameState:

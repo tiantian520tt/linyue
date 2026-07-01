@@ -53,7 +53,8 @@ class GalgameEngine:
         self.timer = 0
         self.black_screen_timer = 0
         
-        self.current_time = "afternoon"
+        self.current_time = random.choice(["morning", "afternoon", "evening"])
+        self.next_time_str = "night"
         self.current_activity = ""
         self.notifications = []
         self.show_history_ui = False
@@ -88,7 +89,46 @@ class GalgameEngine:
         self.user_input_buffer = ""
         self.is_inputting = False
         
-        self.trigger_ai_dialogue("你好啊！")
+        # --- 氛围粒子系统初始化 ---
+        self.particles = []
+        self.particle_surfs_day = {}   # 白天金色粒子缓存池
+        self.particle_surfs_night = {} # 夜晚蓝色粒子缓存池
+        
+        # 提前画好 1~3 像素大小的贴图，坚决不在循环里画图！养成避免屎山代码好习惯。
+        for size in range(1, 4):
+            day_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(day_surf, (255, 235, 150), (size, size), size)
+            self.particle_surfs_day[size] = day_surf
+            
+            night_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(night_surf, (150, 200, 255), (size, size), size)
+            self.particle_surfs_night[size] = night_surf
+
+        for _ in range(40):
+            self.particles.append({
+                "x": random.randint(0, self.WIDTH),
+                "y": random.randint(0, self.HEIGHT),
+                "speed": random.uniform(0.2, 0.8),
+                "size": random.randint(1, 3),
+                "alpha_offset": random.uniform(0, math.pi * 2)
+            })
+
+        # 边缘优化，弃用
+        """
+        mini_w, mini_h = self.WIDTH // 4, self.HEIGHT // 4
+        self.vignette = pygame.Surface((mini_w, mini_h), pygame.SRCALPHA)
+        self.vignette.fill((0, 0, 0, 160)) 
+        eraser = pygame.Surface((mini_w, mini_h), pygame.SRCALPHA)
+        for i in range(1, 12):
+            alpha = int(255 * (i / 12))  # 越往中心透明度越高
+            shrink = i * 10
+            draw_rect = [shrink, shrink, mini_w - shrink * 2, mini_h - shrink * 2]
+            if draw_rect[2] > 0 and draw_rect[3] > 0:
+                pygame.draw.ellipse(eraser, (255, 255, 255, alpha), draw_rect)
+        self.vignette.blit(eraser, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+        self.vignette = pygame.transform.smoothscale(self.vignette, (self.WIDTH, self.HEIGHT))
+        """
+        self.trigger_ai_dialogue("你好啊。")
 
     def show_notification(self, text, color):
         self.notifications.append({
@@ -254,6 +294,24 @@ class GalgameEngine:
             # --- 状态同步与弹窗 ---
             if self.ai_response_ready:
                 self.ai_response_ready = False
+                
+                # --- 自动日期跳转判断 ---
+                time_order = {"morning": 1, "noon": 2, "afternoon": 3, "evening": 4, "night": 5}
+                
+                # 使用 getattr 确保不会因为变量不存在报错
+                old_time = self.current_time.lower().strip()
+                new_time = getattr(self, 'next_time_str', 'afternoon').lower().strip()
+                
+                old_val = time_order.get(old_time, 0)
+                new_val = time_order.get(new_time, 0)
+                
+                # 如果时间线出现回溯 (比如从 5 回到 1)，且不是手动触发的睡眠跨越 1.4.0重点修复
+                if old_val > new_val and not self.is_sleep_transition:
+                    self.backend.day_count += 1
+                    self.show_notification(f"☀ 新的一天开始了 (第 {self.backend.day_count} 天)", (255, 220, 100))
+                    self.backend.save_game()
+                # ----------------------------------
+
                 delta = self.next_mood_val - self.mood_value
                 self.mood_value = self.next_mood_val
                 
@@ -285,10 +343,17 @@ class GalgameEngine:
             if self.state in (GameState.WAITING_FOR_STANDARD_IMAGE, GameState.WAITING_FOR_IMAGE):
                 if not (self.state == GameState.WAITING_FOR_IMAGE and pygame.time.get_ticks() - getattr(self, 'black_screen_timer', 0) < 2000):
                     try:
-                        img, img_path = self.art_engine.generation_queue.get_nowait()
+                        queue_data = self.art_engine.generation_queue.get_nowait()
+                        img, img_path = queue_data[:2] # 安全解包
+                        
                         w, h = img.size
+                        # 放大 5%，为运镜留出物理空间
+                        scale_factor = 1.05
+                        new_h = int(self.HEIGHT * scale_factor)
+                        new_w = int(w * (new_h / h))
+                        
                         img_surf = pygame.image.fromstring(img.tobytes(), img.size, img.mode)
-                        self.current_sprite_image = pygame.transform.smoothscale(img_surf, (int(w * (self.HEIGHT / h)), self.HEIGHT))
+                        self.current_sprite_image = pygame.transform.smoothscale(img_surf, (new_w, new_h))
                         
                         full_txt = (self.pre_dialogue + " " + self.post_dialogue).strip()
                         if full_txt:
@@ -333,7 +398,7 @@ class GalgameEngine:
                 if self.black_alpha <= 0:
                     if self.post_dialogue or self.pre_dialogue:
                         # 判断用前半段还是后半段的声音
-                        # 666缩进少缩进一行报错三次没发现，不应该写except的，删了！
+                        # 666缩进少缩进一个tab
                         if self.post_dialogue:
                             self.target_text = self.post_dialogue
                             audio_to_play = getattr(self, 'post_audio_file', None)
@@ -347,15 +412,75 @@ class GalgameEngine:
 
             # === 调用苦力工 ui_renderer 干活 ===
             self.screen.fill((0, 0, 0))
+            
             if self.current_sprite_image:
-                if self.alpha < 255: self.alpha += 10 
-                self.current_sprite_image.set_alpha(self.alpha)
-                self.screen.blit(self.current_sprite_image, ((self.WIDTH - self.current_sprite_image.get_width()) // 2, 0))
+                if self.alpha < 255: 
+                    self.alpha = min(255, self.alpha + 10)
+                    self.current_sprite_image.set_alpha(self.alpha)
+                
+                # --- 2.5D 阻尼视差 ---
+                # 1. 获取鼠标位置并归一化 (-1.0 到 1.0)
+                mx, my = pygame.mouse.get_pos()
+                mouse_dx = (mx / self.WIDTH - 0.5) * 2
+                mouse_dy = (my / self.HEIGHT - 0.5) * 2
+                
+                # 2. 设置最大偏移目标 (背景图最大移动 20 像素)
+                target_bg_x = -mouse_dx * 20
+                target_bg_y = -mouse_dy * 15
+                
+                # 3. 初始化平滑插值变量 (利用 getattr 防止报错)
+                self.current_bg_x = getattr(self, 'current_bg_x', 0)
+                self.current_bg_y = getattr(self, 'current_bg_y', 0)
+                
+                # 4. Lerp 阻尼算法：让当前坐标丝滑地向目标坐标靠拢 (0.1 是阻尼系数，越小越平滑)
+                self.current_bg_x += (target_bg_x - self.current_bg_x) * 0.1
+                self.current_bg_y += (target_bg_y - self.current_bg_y) * 0.1
+                
+                # 5. 计算最终绘制坐标
+                offset_w = self.current_sprite_image.get_width() - self.WIDTH
+                offset_h = self.current_sprite_image.get_height() - self.HEIGHT
+                draw_x = - (offset_w // 2) + int(self.current_bg_x)
+                draw_y = - (offset_h // 2) + int(self.current_bg_y)
+                
+                self.screen.blit(self.current_sprite_image, (draw_x, draw_y))
+                
+                # --- 动态氛围遮罩 (加入视差深度) ---
+                if self.alpha > 0:
+                    is_night = self.current_time in ["night", "evening"]
+                    cache_dict = self.particle_surfs_night if is_night else self.particle_surfs_day
+                    
+                    # 设定粒子层的目标偏移量 (幅度比背景大一倍)
+                    target_pt_x = -mouse_dx * 40
+                    target_pt_y = -mouse_dy * 30
+                    self.current_pt_x = getattr(self, 'current_pt_x', 0)
+                    self.current_pt_y = getattr(self, 'current_pt_y', 0)
+                    self.current_pt_x += (target_pt_x - self.current_pt_x) * 0.1
+                    self.current_pt_y += (target_pt_y - self.current_pt_y) * 0.1
+                    
+                    t = pygame.time.get_ticks()
+                    for p in self.particles:
+                        p["y"] -= p["speed"] 
+                        p["x"] += math.sin(t / 2000.0 + p["alpha_offset"]) * 0.3 # 减弱自身的无规律抖动
+                        
+                        if p["y"] < -20: p["y"] = self.HEIGHT + 20
+                        if p["y"] > self.HEIGHT + 20: p["y"] = -20
+                            
+                        p_alpha = int((math.sin(t / 500.0 + p["alpha_offset"]) + 1) / 2 * 150)
+                        surf = cache_dict[p["size"]]
+                        surf.set_alpha(p_alpha)
+                        
+                        # 绘制时叠加视差坐标
+                        final_p_x = p["x"] + self.current_pt_x
+                        final_p_y = p["y"] + self.current_pt_y
+                        self.screen.blit(surf, (int(final_p_x), int(final_p_y)))
+            # -----------------------------------------------
 
             dark_mask = pygame.Surface((self.WIDTH, 300), pygame.SRCALPHA)
             dark_mask.fill((0, 0, 0, 80)) 
             self.screen.blit(dark_mask, (0, self.HEIGHT - 300))
-
+            # 画完粒子后，贴上电影暗角 被弃用
+            # self.screen.blit(self.vignette, (0, 0))
+            
             ui_renderer.draw_top_hud(self)
             ui_renderer.draw_skip_button(self)
             ui_renderer.draw_modern_dialogue_box(self)
@@ -407,4 +532,4 @@ class GalgameEngine:
                         self.screen.blit(load_txt, load_txt.get_rect(bottomright=(self.WIDTH - 20, self.HEIGHT - 20)))
 
             pygame.display.flip()
-            clock.tick(30)
+            clock.tick(120)

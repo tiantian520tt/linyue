@@ -25,13 +25,22 @@ class TTSEngine:
 
     def get_voicevox_id_by_mood(self, mood_keyword):
         mood = mood_keyword.lower()
-        if any(w in mood for w in ["happy", "blush", "shy", "love"]): return 0  
-        elif any(w in mood for w in ["sad", "tense", "angry"]): return 6        
-        elif any(w in mood for w in ["sleep", "night"]): return 36              
-        else: return 2                                                          
+        #print(mood)
+        # 扩展关键词匹配，增强鲁棒性
+        if any(w in mood for w in ["sad", "cry", "pain", "depressed"]): 
+            return 6  # 忧郁
+        if any(w in mood for w in ["angry", "tense", "nervous", "annoyed"]): 
+            return 4  # 愤怒/紧张
+        if any(w in mood for w in ["sleep", "night", "tired", "whisper"]): 
+            return 36 # 低语/疲惫
+        if any(w in mood for w in ["happy", "smile", "joy", "cheerful", "blush", "love"]): 
+            return 0  # 活泼/开心
+        if any(w in mood for w in ["neutral", "calm", "normal", "plain"]): 
+            return 2  # 平静
+        return 2                                                    
 
     def _clean_text(self, text):
-        """洗掉给玩家看的系统旁白，不然萌妹子会把【SKIP】也给念出来"""
+        """洗掉系统旁白，不然萌妹子会把【SKIP】也给念出来"""
         return re.sub(r'【SKIP-.*?】', '', text).strip()
 
     def _get_filename(self, jp_text, speaker_id):

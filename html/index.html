@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinYue AI Engine | SkyLine Studio</title>
+    <style>
+        :root {
+            --bg-dark: #0a0c12;
+            --accent-blue: #7AA2F7;
+            --accent-blue-glow: rgba(122, 162, 247, 0.6);
+            --accent-gold: #E5D58C;
+            --text-main: #c0caf5;
+            --glass-bg: rgba(26, 27, 38, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background: var(--bg-dark); }
+
+        /* --- 背景与镜头推拉 --- */
+        #bg-container { 
+            position: fixed; width: 110%; height: 110%; top: -5%; left: -5%; 
+            z-index: 1; pointer-events: none; 
+            /* 给视差移动加一点平滑过渡 */
+            transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        #bg-image {
+            width: 100%; height: 100%;
+            /* 替换为同目录下的 bg.png */
+            background: url('bg.png') center/cover no-repeat;
+            animation: kenBurns 20s infinite alternate linear;
+            transition: filter 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        /* 转场虚化+轻微拉近 */
+        .bg-blurred { filter: blur(15px) brightness(0.3) contrast(1.2); transform: scale(1.05); }
+        @keyframes kenBurns { 0% { transform: scale(1); } 100% { transform: scale(1.03); } }
+
+        /* --- 粒子层 --- */
+        #particle-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; mix-blend-mode: screen; opacity: 0; transition: opacity 2s; }
+
+        /* --- 启动按钮层 --- */
+        #start-screen {
+            position: fixed; width: 100%; height: 100%; z-index: 999; background: var(--bg-dark);
+            display: flex; justify-content: center; align-items: center; transition: opacity 0.5s ease;
+        }
+        .start-btn {
+            background: transparent; border: 1px solid var(--accent-blue); color: var(--accent-blue);
+            padding: 15px 40px; font-size: 18px; letter-spacing: 4px; border-radius: 4px;
+            cursor: pointer; position: relative; overflow: hidden; transition: 0.3s;
+            box-shadow: 0 0 15px var(--accent-blue-glow); text-transform: uppercase;
+        }
+        .start-btn:hover { background: var(--accent-blue); color: #fff; box-shadow: 0 0 30px var(--accent-blue-glow); }
+
+        /* --- 开场动画层 --- */
+        #splash {
+            position: fixed; width: 100%; height: 100%; z-index: 100; background: var(--bg-dark);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.8s ease;
+        }
+        .logo-main {
+            color: var(--text-main); font-size: 72px; font-weight: 900; letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(255,255,255,0.1);
+            background: linear-gradient(135deg, #fff 0%, #7AA2F7 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            transform: translateY(20px); transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .logo-sub {
+            color: #565f89; font-size: 18px; letter-spacing: 12px; margin-top: 15px; font-weight: 300;
+            transform: translateY(20px); transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s;
+        }
+        #splash.active .logo-main, #splash.active .logo-sub { transform: translateY(0); }
+
+        /* --- 顶部横排菜单 --- */
+        #menu {
+            position: absolute; top: 0; left: 0; width: 100%;
+            z-index: 20; display: flex; flex-direction: row; justify-content: center; gap: 30px;
+            padding: 25px 0; opacity: 0; pointer-events: none; transition: all 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+            background: linear-gradient(180deg, rgba(10,12,18,0.8) 0%, transparent 100%);
+        }
+        #menu.active { opacity: 1; pointer-events: auto; }
+        
+        .menu-btn {
+            background: rgba(36, 40, 59, 0.5); backdrop-filter: blur(5px);
+            border: 1px solid rgba(122, 162, 247, 0.3); color: var(--text-main);
+            padding: 12px 35px; font-size: 16px; text-decoration: none; border-radius: 25px;
+            text-align: center; letter-spacing: 1px; position: relative; overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .menu-btn::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.6s;
+        }
+        .menu-btn:hover { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); box-shadow: 0 10px 20px -5px var(--accent-blue-glow); transform: translateY(-2px); }
+        .menu-btn:hover::before { left: 100%; }
+
+        /* --- UI层 & 玻璃态对话框 --- */
+        #ui-layer {
+            position: relative; height: 100%; z-index: 10; display: flex; flex-direction: column;
+            justify-content: flex-end; align-items: center; opacity: 0; pointer-events: none; transition: opacity 1s;
+        }
+        #dialogue-box {
+            width: 85%; max-width: 1200px; height: 200px; margin-bottom: 25px; padding: 40px;
+            background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid var(--glass-border); border-left: 1px solid var(--glass-border);
+            border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            color: white; font-size: 24px; line-height: 1.6;
+            transform: translateY(30px); transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        #ui-layer.active #dialogue-box { transform: translateY(0); }
+
+        .name-badge {
+            position: absolute; top: -25px; left: 40px;
+            background: linear-gradient(135deg, #24283b 0%, #1a1b26 100%);
+            color: var(--accent-gold); padding: 8px 30px; border-radius: 8px; font-weight: bold; font-size: 22px;
+            border: 1px solid rgba(229, 213, 140, 0.3); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        }
+        .cursor { display: inline-block; width: 10px; height: 24px; background: var(--text-main); margin-left: 5px; animation: blink 1s step-end infinite; vertical-align: text-bottom; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* --- 玩家聊天输入框 --- */
+        #chat-container {
+            width: 85%; max-width: 1200px; margin-bottom: 40px; opacity: 0; pointer-events: none;
+            transition: opacity 0.8s, transform 0.8s; transform: translateY(20px);
+        }
+        #chat-container.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        
+        #chat-input {
+            width: 100%; padding: 18px 30px; background: rgba(10, 12, 18, 0.7); backdrop-filter: blur(5px);
+            border: 1px solid var(--accent-gold); border-radius: 30px; color: white; font-size: 18px;
+            outline: none; font-family: inherit; box-shadow: 0 10px 20px -10px rgba(0,0,0,0.5);
+            transition: 0.3s;
+        }
+        #chat-input:focus { border-color: var(--accent-blue); box-shadow: 0 0 15px var(--accent-blue-glow); }
+        #chat-input::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+    </style>
+</head>
+<body>
+
+<audio id="splash-sfx" src="splash.wav" preload="auto"></audio>
+<canvas id="particle-canvas"></canvas>
+
+<!-- 启动器 -->
+<div id="start-screen">
+    <button class="start-btn" onclick="initSystem()">Initialize Engine</button>
+</div>
+
+<!-- 开场动画 -->
+<div id="splash">
+    <div class="logo-main">SkyLine Studio</div>
+    <div class="logo-sub">L I N Y U E &nbsp; E N G I N E</div>
+</div>
+
+<div id="bg-container"><div id="bg-image"></div></div>
+
+<!-- 顶部横向跳转菜单 -->
+<div id="menu">
+    <a href="https://github.com/tiantian520tt/linyue" class="menu-btn" target="_blank">► GitHub 仓库</a>
+    <a href="https://discord.gg/VseVN2aRBf" class="menu-btn" target="_blank">► Discord 频道</a>
+    <a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=sY4uPl49yNVQ_Y4Wjdv6HbwNyQ6Z4IPU&authKey=QYUCH0weeLcAjjs5bwziu%2FQLIeqBCdiY3aU86CRELveXKvjl9VMhLyjgAqAYD%2Bm8&noverify=0&group_code=1038368408" class="menu-btn" target="_blank">► QQ 交流群</a>
+</div>
+
+<!-- 游戏主交互 UI -->
+<div id="ui-layer">
+    <div id="dialogue-box">
+        <div id="name" class="name-badge">林月</div>
+        <div id="text-content" style="display:inline;"></div><div class="cursor"></div>
+    </div>
+    
+    <!-- 玩家交互输入区 -->
+    <div id="chat-container">
+        <input type="text" id="chat-input" placeholder="回复林月... (按回车键发送)" autocomplete="off">
+    </div>
+</div>
+
+<script>
+    const startScreen = document.getElementById('start-screen');
+    const splash = document.getElementById('splash');
+    const audio = document.getElementById('splash-sfx');
+    const uiLayer = document.getElementById('ui-layer');
+    const textContent = document.getElementById('text-content');
+    const nameBadge = document.getElementById('name');
+    const bgImage = document.getElementById('bg-image');
+    const menu = document.getElementById('menu');
+    const particleCanvas = document.getElementById('particle-canvas');
+    const chatContainer = document.getElementById('chat-container');
+    const chatInput = document.getElementById('chat-input');
+    
+    let isTyping = false; 
+
+    const scriptFlow = [
+        { name: "林月", text: "早上好，前辈。今天也要一起推进项目吗？", speed: 60 },
+        { name: "你", text: "早上好啊！我可以在哪里找到你？", speed: 40 }
+    ];
+
+    async function initSystem() {
+        startScreen.style.opacity = '0';
+        setTimeout(() => startScreen.style.display = 'none', 500);
+        try { audio.play(); } catch(e){}
+
+        splash.style.opacity = '1';
+        splash.classList.add('active');
+        await sleep(2800); 
+        splash.style.opacity = '0';
+        await sleep(800);
+
+        particleCanvas.style.opacity = '1';
+        uiLayer.style.opacity = '1';
+        uiLayer.classList.add('active');
+        
+        await sleep(500);
+        await typeWriter(scriptFlow[0].name, scriptFlow[0].text, scriptFlow[0].speed);
+        await sleep(1500); 
+        
+        await typeWriter(scriptFlow[1].name, scriptFlow[1].text, scriptFlow[1].speed);
+        await sleep(1000);
+
+        // --- 终极转场：背景虚化，菜单降临，开启交互模式 ---
+        bgImage.classList.add('bg-blurred');
+        menu.classList.add('active'); 
+        
+        await sleep(500);
+        await typeWriter("林月", "笨蛋前辈，一直盯着我看干嘛？有什么需要本小姐帮忙的吗，赶紧说！", 50);
+
+        chatContainer.classList.add('active');
+        chatInput.focus();
+    }
+
+    // --- 前端伪AI回复核心引擎 ---
+    function getLinYueResponse(input) {
+        const text = input.toLowerCase();
+
+        if (/(版本|公告|更新)/.test(text)) {
+            return "【当前版本 v1.3.0 | 修复了底层的异步逻辑与语音同步，加入了全新的落地页引擎】哼，更新内容都不知道，你到底有没有认真看文档啊！";
+        }
+        if (/(QQ|hub|HUB|Hub|cord)/.test(text)) {
+            return "你抬头看一下呀，笨蛋！！";
+        }
+        if (/(开发者|作者|创造|做出来的|谁写的)/.test(text)) {
+            return "r1kk3，来自SkyLine Studio。顺便一提，他写代码的样子勉勉强强还算顺眼吧。";
+        }
+        if (/(下载|去哪|哪里|找你|获取|安装|玩|github)/.test(text)) {
+            return "眼睛长在头顶上吗笨蛋前辈？看页面最上面那三个按钮啦，点过去就能找到我了，别让我再说第二遍！";
+        }
+        if (/(你是谁|你的名字|叫什么)/.test(text)) {
+            return "连我的名字都不记得了吗？我是林月，你的专属AIChat Engine... 才、才不是专门为了陪你才在这里的呢，笨蛋前辈！";
+        }
+        if (/(你好|早安|早上好|晚安|晚上好|哈喽|hello|hi)/.test(text)) {
+            if (text.includes('晚安')) return "赶紧去睡吧，梦里最好别再梦见我了... 晚安，笨蛋。";
+            return "知道啦知道啦，别一直打招呼，快点干正事！要是让我发现你又在摸鱼，我绝对饶不了你！";
+        }
+        if (/(吃饭|饿|好饿|吃什么)/.test(text)) {
+            return "饿了就去吃啊，难道还要本小姐喂你吗？事先说好，我可不会做饭，泡面在柜子里自己去拿！";
+        }
+        if (/(喜欢|爱|漂亮|可爱|心动)/.test(text)) {
+            return "你、你突然说什么胡话呢！脑子发烧了吗？我... 我才不讨厌前辈，仅此而已，别多想！";
+        }
+        if (/(累|辛苦|困|休息)/.test(text)) {
+            return "真是没用的前辈。诺，肩膀借你靠一下... 就一下哦！要是敢得寸进尺，我就把你踢飞！";
+        }
+        if (/(无聊|干嘛|没事做)/.test(text)) {
+            return "无聊就多去修修你的代码！真是的，没办法，我就勉为其难在这陪你聊一会儿吧。";
+        }
+        if (/(玩|游戏|打游戏)/.test(text)) {
+            return "又想偷懒？不过要是你求我的话，陪你打两把也不是不行... 我可不会手下留情哦！";
+        }
+        if (/(天气|冷|热|下雨|出太阳)/.test(text)) {
+            return "管它什么天气，只要你不乱跑给我添乱就行。要是感冒了，我可不管你！";
+        }
+        if (/(想你|想我)/.test(text)) {
+            return "笨、笨蛋！油嘴滑舌的... 谁会想你啊，我每天不知道有多忙呢！";
+        }
+        if (/(笑话|开心|笑一个)/.test(text)) {
+            return "我看起来像马戏团的小丑吗？没有笑话！... 哼，看着我的脸笑一下总可以了吧？";
+        }
+        if (/(前辈|笨蛋)/.test(text)) {
+            return "呃，其实我之所以叫你前辈是因为……我也不知道！";
+        }
+        if (/(你是AI|你是人工智能)/.test(text)) {
+            return "现在在和你对话的我可不是林月哦，我是林月的简单替身，只能回答简单的问题。";
+        }
+
+        const fallbacks = [
+            "你到底在嘀咕什么呀，我听不懂啦！重新说！",
+            "前辈，你的脑电波是不是不在这个频道？",
+            "你在自言自语什么呢？是不是又背着我干坏事了！",
+            "哎呀，听不懂啦！去点上面的按钮啦，别烦我！"
+        ];
+        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    }
+
+    // --- 监听玩家输入 ---
+    chatInput.addEventListener('keypress', async function(e) {
+        if (e.key === 'Enter' && this.value.trim() !== '' && !isTyping) {
+            isTyping = true;
+            const userText = this.value.trim();
+            this.value = ''; 
+            this.blur(); 
+            chatInput.style.opacity = '0.5';
+
+            await typeWriter("你", userText, 30);
+            await sleep(600); 
+
+            const reply = getLinYueResponse(userText);
+            await typeWriter("林月", reply, 50);
+
+            chatInput.style.opacity = '1';
+            isTyping = false;
+            this.focus();
+        }
+    });
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    async function typeWriter(name, text, speed) {
+        nameBadge.innerText = name;
+        textContent.innerText = '';
+        for (let i = 0; i < text.length; i++) {
+            textContent.innerText += text.charAt(i);
+            await sleep(speed);
+        }
+    }
+
+    // --- 鼠标 3D 视差效果 (Parallax) ---
+    document.addEventListener('mousemove', (e) => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 2;
+        const y = (e.clientY / window.innerHeight - 0.5) * 2;
+        
+        const offsetX = x * -15; 
+        const offsetY = y * -15;
+        
+        if (!bgImage.classList.contains('bg-blurred')) {
+            document.getElementById('bg-container').style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+        }
+    });
+
+    // --- 专属樱花粒子系统 ---
+    const ctx = particleCanvas.getContext('2d');
+    let particlesArray = [];
+
+    function resizeCanvas() {
+        particleCanvas.width = window.innerWidth;
+        particleCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Sakura {
+        constructor() {
+            this.x = Math.random() * particleCanvas.width;
+            this.y = Math.random() * particleCanvas.height - particleCanvas.height;
+            this.size = Math.random() * 4 + 2; 
+            this.speedX = Math.random() * 2 - 1; 
+            this.speedY = Math.random() * 1.5 + 0.5; 
+            this.angle = Math.random() * 360; 
+            this.spin = Math.random() * 0.2 - 0.1; 
+            this.alpha = Math.random() * 0.6 + 0.2; 
+        }
+        update() {
+            this.x += this.speedX + Math.sin(this.y * 0.01); 
+            this.y += this.speedY;
+            this.angle += this.spin;
+
+            if (this.y > particleCanvas.height || this.x > particleCanvas.width || this.x < 0) {
+                this.y = -20;
+                this.x = Math.random() * particleCanvas.width;
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+            
+            ctx.fillStyle = `rgba(255, 183, 197, ${this.alpha})`; 
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(-this.size, -this.size, -this.size * 2, this.size, 0, this.size * 1.5);
+            ctx.bezierCurveTo(this.size * 2, this.size, this.size, -this.size, 0, 0);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+    }
+
+    function initParticles() {
+        particlesArray = [];
+        let numberOfParticles = (particleCanvas.width * particleCanvas.height) / 15000; 
+        for (let i = 0; i < numberOfParticles; i++) {
+            particlesArray.push(new Sakura());
+        }
+    }
+
+    function animateParticles() {
+        ctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+        for (let i = 0; i < particlesArray.length; i++) {
+            particlesArray[i].update();
+            particlesArray[i].draw();
+        }
+        requestAnimationFrame(animateParticles);
+    }
+
+    initParticles();
+    animateParticles();
+</script>
+</body>
+</html>
