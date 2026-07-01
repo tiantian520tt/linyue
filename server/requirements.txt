@@ -1,6 +1,2 @@
-<<<<<<< HEAD
 flask
-=======
-flask
->>>>>>> 3dc5ef8 (version 1.3.0 updated)
 requests
