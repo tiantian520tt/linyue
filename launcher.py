@@ -10,7 +10,7 @@ import os
 import requests
 import webbrowser
 
-CLIENT_VERSION = "1.2.0"
+CLIENT_VERSION = "1.3.0"
 
 BG_MAIN = "#1A1B26"       
 BG_CARD = "#24283B"       
@@ -41,6 +41,7 @@ class GalgameLauncher:
         self.max_msgs_var = tk.IntVar(value=12)             
         self.low_vram_var = tk.BooleanVar(value=False) 
         self.char_name_var = tk.StringVar(value="林月") 
+        self.enable_tts_var = tk.BooleanVar(value=False)
 
         self.load_config()
         self.setup_styles()
@@ -64,9 +65,10 @@ class GalgameLauncher:
                 self.max_msgs_var.set(config.get("max_short_term_msgs", 12))    
                 self.low_vram_var.set(config.get("low_vram_mode", False)) 
                 self.char_name_var.set(config.get("char_name", "林月")) 
+                self.enable_tts_var.set(config.get("enable_tts", False)) # 读取语音配置
             except Exception as e:
                 print(f"读取历史配置失败，将使用默认值: {e}")
-    
+
     def setup_styles(self):
         style = ttk.Style()
         style.theme_use('default')
@@ -97,6 +99,15 @@ class GalgameLauncher:
             selectcolor=COLOR_ENTRY, font=("Microsoft YaHei", 9, "bold")
         )
         low_vram_cb.pack(anchor="w", pady=(0, 5))
+        
+        # ===== 新增：日配语音开关 =====
+        tts_cb = tk.Checkbutton(
+            self.card_frame, text="开启二次元日配语音 (需挂载 Voicevox)", variable=self.enable_tts_var,
+            command=self.check_voicevox, # 绑定探针
+            bg=BG_CARD, fg=FG_TEXT, activebackground=BG_CARD, activeforeground=FG_TITLE,
+            selectcolor=COLOR_ENTRY, font=("Microsoft YaHei", 10, "bold")
+        )
+        tts_cb.pack(anchor="w", pady=(0, 5))
 
         mem_frame = tk.Frame(self.card_frame, bg=BG_CARD)
         mem_frame.pack(fill="x", pady=(0, 5))
@@ -182,6 +193,19 @@ class GalgameLauncher:
             activebackground=COLOR_RED, activeforeground="white", cursor="hand2"
         )
         self.clear_btn.pack(side="right", fill="x", expand=True, padx=(5, 0), ipady=4)
+    
+    def check_voicevox(self):
+        """Voicevox 服务探针"""
+        if self.enable_tts_var.get():
+            try:
+                # 给它1秒钟的响应时间
+                res = requests.get("http://127.0.0.1:50021/version", timeout=1)
+                if res.status_code != 200:
+                    raise Exception()
+            except:
+                self.enable_tts_var.set(False)
+                if messagebox.askyesno("未检测到 Voicevox", "开启日配语音需要你在后台保持运行 VOICEVOX 软件。\n当前未检测到本地 50021 端口有响应。\n\n是否要前往浏览器下载并开启 VOICEVOX？"):
+                    webbrowser.open("https://voicevox.hiroshiba.jp/")
 
     def create_modern_entry(self, parent, text_var, show=None):
         frame = tk.Frame(parent, bg=COLOR_ENTRY, padx=4, pady=4)
@@ -271,7 +295,6 @@ class GalgameLauncher:
         threading.Thread(target=_bg_check, daemon=True).start()
 
     def launch_game(self):
-        # 判断角色名字是否为空，为空则默认林月并且更新UI，我tm服了，为什么会有人不写名字啊？
         if not self.char_name_var.get().strip():
             self.char_name_var.set("林月")
 
@@ -285,7 +308,6 @@ class GalgameLauncher:
         if not apikey:
             messagebox.showerror("安全凭证缺失", "API Key 不能为空！请输入正确的服务端通信授权秘钥。")
             return
-        
         if not modelfile:
             if not messagebox.askyesno("警告", "没有选中 Modelfile 时，若服务器为空白服务器，则会出现意料之外的错误。\n\n要继续吗？"):
                 return 
@@ -300,7 +322,8 @@ class GalgameLauncher:
             "enable_summary": self.enable_summary_var.get(), 
             "max_short_term_msgs": self.max_msgs_var.get(),
             "low_vram_mode": self.low_vram_var.get(),
-            "char_name": self.char_name_var.get().strip()   # 此处无需再使用 or "林月"，因为上方已经处理完毕
+            "char_name": self.char_name_var.get().strip(),
+            "enable_tts": self.enable_tts_var.get()
         }
         
         default_pprt = "best quality, masterpiece, highres, 1girl, asuka langley, vibrant colors, anime style, soft lighting, sharp focus, looking at viewer, upper body, "
@@ -320,7 +343,6 @@ class GalgameLauncher:
         try:
             self.status_label.config(text="🌐 正在穿透网关与云端建立握手...", fg="#E0AF68")
             self.root.update()
-            
             check_endpoint = f"{server_url}/check"
             resp = requests.get(check_endpoint, params={"apikey": apikey, "version": CLIENT_VERSION}, timeout=7)
             server_code = resp.text.strip()
@@ -362,7 +384,8 @@ class GalgameLauncher:
         except Exception as e:
             messagebox.showerror("进程拉起失败", f"无法加载 main.py: {e}")
     # ==========================================
-    # 喜报 今天改了3个bug 2026.6.30
+    # 喜报 今天改了3个bug 2026.6.30  
+    # 2026.7.1 今天更新1.3.0
     # ==========================================
     def monitor_game_process(self):
         if hasattr(self, 'game_process'):

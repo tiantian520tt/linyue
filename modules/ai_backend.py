@@ -21,7 +21,7 @@ class AdvancedAIBackend:
             self.status_callback(msg)
 
     # ==========================================
-    # 喜报！这里不用修。不是bug。
+    # 喜报！这里不用修。不是bug。 2026.7.1 1.3.0更新 悲 这里被删掉力
     # ==========================================
     def _safe_parse_json(self, text):
         if not text: return {}

@@ -1,6 +1,10 @@
 import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import queue
 import torch
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+# 针对30-40系列显卡优化
 import threading
 from datetime import datetime 
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler # 引入 DPM++ 调度器 替代原来的 Eular， 大幅提升性能，现在实测2080ti 1s一张 （我怎么记得还有dpm2++ karras?)
@@ -20,11 +24,22 @@ class GalgameArtEngine:
         
         # 根据启动器配置动态应用显存策略
         if getattr(config, 'low_vram_mode', False):
-            print(">>> [ArtEngine] 已启用低显存模式 (CPU Offload)，速度较慢但防爆显存")
+            print(">>> [ArtEngine] 已启用低显存模式 (CPU Offload)")
             self.pipe.enable_model_cpu_offload()
         else:
-            print(">>> [ArtEngine] 已启用满血模式 (GPU 全载入)，速度极快")
+            print(">>> [ArtEngine] 已启用满血模式 (GPU 全载入)")
             self.pipe.to(self.device)
+        
+        print(">>> [ArtEngine] 正在执行预热推理...")
+        #self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead", fullgraph=True)
+        
+        """_ = self.pipe(
+            "warmup", 
+            num_inference_steps=1, 
+            width=256, 
+            height=256
+        ).images[0]"""
+        print(">>> [ArtEngine] 预热完毕。")
 
         #DPM++ 2M Karras
         self.pipe.scheduler = DPMSolverMultistepScheduler.from_config(

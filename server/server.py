@@ -9,12 +9,12 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 import requests
 
-REQUIRED_CLIENT_VERSION = "1.1.1"
+REQUIRED_CLIENT_VERSION = "1.3.0"
 
 # -----------------
 # 1. 参数解析逻辑
 # -----------------
-parser = argparse.ArgumentParser(description="LinYue Galgame 云端 AI 服务端")
+parser = argparse.ArgumentParser(description="LinYue AiChat Game 云端 AI 服务端")
 parser.add_argument('-p', type=int, help="启动服务器的端口")
 parser.add_argument('-modelfile', type=str, help="启动ollama将使用的modelfile绝对路径")
 # 【修改】：取消注释 -t，并将其含义修改为每分钟允许单个 APIKEY 请求的次数

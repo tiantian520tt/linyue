@@ -5,3 +5,5 @@ Pillow==11.2.1
 pygame>=2.5.2
 requests>=2.31.0
 peft
+deep-translator
+translators

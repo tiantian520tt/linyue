@@ -132,7 +132,7 @@ def draw_modern_dialogue_box(engine):
     engine.screen.blit(copy_surf, (15, engine.HEIGHT - 30))
 
 def draw_top_hud(engine):
-    """顶部状态栏：记录存活天数、当前时间和背景音乐开关"""
+    """顶部状态栏：记录存活天数、当前时间和全局音量开关"""
     time_cn_map = {"morning":"清晨", "noon":"正午", "afternoon":"午后", "evening":"傍晚", "night":"深夜"}
     t_cn = time_cn_map.get(engine.current_time.lower(), engine.current_time)
     
@@ -148,19 +148,22 @@ def draw_top_hud(engine):
     pygame.draw.circle(engine.screen, (235, 213, 140), (55, 42), 6)
     engine.screen.blit(hud_surf, (75, 32))
 
-    engine.music_btn_rect = pygame.Rect(1030, 20, 100, 45)
-    is_m_hover = engine.music_btn_rect.collidepoint(pygame.mouse.get_pos())
-    m_bg = pygame.Surface((100, 45), pygame.SRCALPHA)
-    if engine.audio.music_enabled:
-        pygame.draw.rect(m_bg, (255, 255, 255, 60) if is_m_hover else (255, 255, 255, 20), m_bg.get_rect(), border_radius=22)
-        pygame.draw.rect(m_bg, (255, 255, 255, 100), m_bg.get_rect(), width=1, border_radius=22)
-        m_txt = engine.hud_font.render("BGM: ON", True, (255, 255, 255))
+    # 全局音量控制按钮 (稍微拉宽了一点点)
+    engine.vol_btn_rect = pygame.Rect(1020, 20, 110, 45)
+    is_v_hover = engine.vol_btn_rect.collidepoint(pygame.mouse.get_pos())
+    v_bg = pygame.Surface((110, 45), pygame.SRCALPHA)
+    
+    if not engine.audio.is_muted:
+        pygame.draw.rect(v_bg, (255, 255, 255, 60) if is_v_hover else (255, 255, 255, 20), v_bg.get_rect(), border_radius=22)
+        pygame.draw.rect(v_bg, (255, 255, 255, 100), v_bg.get_rect(), width=1, border_radius=22)
+        v_txt = engine.hud_font.render("VOL: ON", True, (255, 255, 255))
     else:
-        pygame.draw.rect(m_bg, (255, 100, 100, 60) if is_m_hover else (255, 100, 100, 20), m_bg.get_rect(), border_radius=22)
-        pygame.draw.rect(m_bg, (255, 100, 100, 100), m_bg.get_rect(), width=1, border_radius=22)
-        m_txt = engine.hud_font.render("BGM: OFF", True, (255, 180, 180))
-    engine.screen.blit(m_bg, engine.music_btn_rect)
-    engine.screen.blit(m_txt, m_txt.get_rect(center=engine.music_btn_rect.center))
+        pygame.draw.rect(v_bg, (255, 100, 100, 60) if is_v_hover else (255, 100, 100, 20), v_bg.get_rect(), border_radius=22)
+        pygame.draw.rect(v_bg, (255, 100, 100, 100), v_bg.get_rect(), width=1, border_radius=22)
+        v_txt = engine.hud_font.render("VOL: OFF", True, (255, 180, 180))
+        
+    engine.screen.blit(v_bg, engine.vol_btn_rect)
+    engine.screen.blit(v_txt, v_txt.get_rect(center=engine.vol_btn_rect.center))
 
     engine.history_btn_rect = pygame.Rect(1140, 20, 110, 45)
     is_h_hover = engine.history_btn_rect.collidepoint(pygame.mouse.get_pos())

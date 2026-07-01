@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-核心引力场 (引擎大脑)。
-负责协调 AI、画面渲染和玩家输入。
-警告：除非你想重构游戏的核心心跳循环，否则不要轻易修改 run() 里的状态转移逻辑！
+请各位pr时严格遵守：LLM -> SD并跑TTS阻塞 -> UI联动发声 的秩序流水线。别问为什么，因为不这样会报错。
 """
 import pygame
 import sys
@@ -16,6 +14,7 @@ import math
 from modules.art_engine import GalgameArtEngine
 from modules.ai_backend import AdvancedAIBackend
 from modules.audio_manager import AudioManager
+from modules.tts_engine import TTSEngine
 from modules import config
 from modules import ui_renderer 
 from modules.constants import GameState, WIDTH, HEIGHT, VERSION
@@ -34,6 +33,7 @@ class GalgameEngine:
 
         # --- 模块化组装区 ---
         self.audio = AudioManager()
+        self.tts = TTSEngine(self.audio) 
         self.art_engine = GalgameArtEngine()
         self.backend = AdvancedAIBackend(status_callback=lambda m: setattr(self, 'status_msg', m))
         
@@ -62,7 +62,6 @@ class GalgameEngine:
         self.history_img_cache = {}
         self.current_sprite_image = None 
 
-        # --- 字体加载 (优先找内置，找不到去系统嫖) ---
         font_path = "assets/fonts/font.ttf" 
         if not os.path.exists(font_path): 
             font_path = "C:/Windows/Fonts/msyh.ttc" if os.path.exists("C:/Windows/Fonts/msyh.ttc") else None 
@@ -89,7 +88,6 @@ class GalgameEngine:
         self.user_input_buffer = ""
         self.is_inputting = False
         
-        # 开局先打个招呼
         self.trigger_ai_dialogue("你好啊！")
 
     def show_notification(self, text, color):
@@ -98,7 +96,6 @@ class GalgameEngine:
         })
 
     def analyze_mood(self, text):
-        """瞎猜AI当前情绪，给音乐大管家提供切歌依据"""
         text = text.lower()
         if any(word in text for word in ["happy", "smil", "joy", "laugh"]): return random.choice(["happy", "happy2"])
         if any(word in text for word in ["sad", "tear", "cry", "crying", "shout"]): return random.choice(["sad", "sad1", "sad2"])
@@ -106,15 +103,16 @@ class GalgameEngine:
         return "calm"
 
     def calculate_mood_value(self, mood_txt, dialogue_txt):
-        """简单粗暴的好感度计算器"""
         text = (mood_txt + " " + dialogue_txt).lower()
         delta = 0
-        if any(w in text for w in ["happy", "smil", "joy", "laugh", "blush", "开心", "笑", "高兴", "喜欢", "期待"]): delta += random.randint(3,8)
+        
         if any(w in text for w in ["sad", "tear", "cry", "angry", "滚", "悲", "痛", "生气", "难过", "烦", "讨厌"]): delta -= random.randint(9,15)
-        if any(w in text for w in ["kiss", "hug", "亲", "吻", "爱你", "抱", "牵手"]): delta += random.randint(8, 20)
+        if any(w in text for w in ["kiss", "hug", "亲", "吻", "爱你", "抱", "牵手"]): delta += random.randint(6, 10)
+        elif any(w in text for w in ["happy", "smil", "joy", "laugh", "blush", "开心", "笑", "高兴", "喜欢", "期待"]): delta += random.randint(3,6)
+        # 1.3.0修复 更改先后逻辑 避免出现多个符合标准 导致delta超标 一次加20点这样的逆天情况
         
         if delta != 0 and self.mood_value < 10:
-            delta = 1 if delta > 0 else -2
+            delta = 1 if delta > 0 else -5
         return max(0, min(100, self.mood_value + delta)) 
 
     def trigger_ai_dialogue(self, text_in, is_player_skip=False, is_auto_next_day=False):
@@ -161,8 +159,27 @@ class GalgameEngine:
                     else:
                         self.pre_dialogue, self.post_dialogue, self.has_ai_skip = dialogue, "", False
 
-                    self.status_msg = "正在生成环境画面..."
+                    self.next_mood_str = mood_p 
+                    self.status_msg = "正在生成环境画面与合成语音..."
+
+                    # 1.3.0优化 异步tts + sd
+                    tts_event = threading.Event()
+                    
+                    def _tts_async_task():
+                        self.pre_audio_file = self.tts.synthesize_sync(self.pre_dialogue, self.next_mood_str)
+                        self.post_audio_file = self.tts.synthesize_sync(self.post_dialogue, self.next_mood_str)
+                        tts_event.set() # 语音任务完成通知
+                        
+                    # 启动语音子线程
+                    threading.Thread(target=_tts_async_task, daemon=True).start()
+                    
+                    # 当前主异步线程直接去调度 SD 画图，物尽其用
                     self.art_engine.generate_async(mood_p, bg_p, time_str)
+                    
+                    # 强制在这里会合：画图队列需要等，语音也必须等它 set()
+                    tts_event.wait() 
+                    # ===================================================
+
                     self.ai_response_ready = True
                 else:
                     self.status_msg = "AI 宕机了，没返回数据"
@@ -175,7 +192,6 @@ class GalgameEngine:
         threading.Thread(target=_async_worker, daemon=True).start()
 
     def process_events(self):
-        """事件捕获中心，防止 run 循环太臃肿"""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -217,8 +233,8 @@ class GalgameEngine:
                         self.audio.play_sfx("click")
                     continue
                 
-                if hasattr(self, 'music_btn_rect') and self.music_btn_rect.collidepoint(event.pos): 
-                    self.audio.toggle_music()
+                if hasattr(self, 'vol_btn_rect') and getattr(self, 'vol_btn_rect').collidepoint(event.pos): 
+                    self.audio.toggle_volume()
                 if hasattr(self, 'history_btn_rect') and self.history_btn_rect.collidepoint(event.pos):
                     self.show_history_ui = True
                     self.history_open_time = pygame.time.get_ticks()
@@ -229,10 +245,9 @@ class GalgameEngine:
                         self.trigger_ai_dialogue("（玩家推进了剧情，接下来你们继续做下一件事）", is_player_skip=True)
 
     def run(self):
-        """游戏心跳主循环。这块要是出bug，整个游戏就凉了。"""
         clock = pygame.time.Clock()
         pygame.key.start_text_input()
-        
+        self.process_events()
         while True:
             self.process_events()
 
@@ -254,12 +269,15 @@ class GalgameEngine:
                 self.audio.update_music_by_mood(self.next_music)
                 self.char_name, self.current_time, self.current_activity = self.next_char_name, self.next_time_str, self.next_activity
                 self.is_sleep_transition = getattr(self, 'next_is_sleep', False)
+                
+                self.current_mood_str = getattr(self, 'next_mood_str', 'happy')
 
                 if self.state in [GameState.FADING_TO_BLACK, GameState.WAITING_FOR_IMAGE, GameState.FADING_FROM_BLACK, GameState.WAITING_FOR_AUTO_RESPONSE]:
                     if self.state == GameState.WAITING_FOR_AUTO_RESPONSE: self.state = GameState.WAITING_FOR_IMAGE
                 else:
                     if self.has_ai_skip:
                         self.target_text, self.current_text, self.char_index, self.state, self.status_msg = self.pre_dialogue, "", 0, GameState.TYPING, ""
+                        self.tts.play_audio(getattr(self, 'pre_audio_file', None))
                     else:
                         self.state, self.current_text, self.status_msg = GameState.WAITING_FOR_STANDARD_IMAGE, "", "等待画面就绪..."
 
@@ -280,6 +298,7 @@ class GalgameEngine:
                             self.alpha, self.state = 255, GameState.FADING_FROM_BLACK
                         else:
                             self.alpha, self.target_text, self.pre_dialogue, self.current_text, self.char_index, self.state, self.status_msg = 0, self.pre_dialogue, "", "", 0, GameState.TYPING, "" 
+                            self.tts.play_audio(getattr(self, 'pre_audio_file', None))
                     except queue.Empty: pass
 
             # --- 打字机与过场动画转移 ---
@@ -313,8 +332,17 @@ class GalgameEngine:
                 self.black_alpha = max(0, self.black_alpha - 5)
                 if self.black_alpha <= 0:
                     if self.post_dialogue or self.pre_dialogue:
-                        self.target_text = self.post_dialogue if self.post_dialogue else self.pre_dialogue
+                        # 判断用前半段还是后半段的声音
+                        # 666缩进少缩进一行报错三次没发现，不应该写except的，删了！
+                        if self.post_dialogue:
+                            self.target_text = self.post_dialogue
+                            audio_to_play = getattr(self, 'post_audio_file', None)
+                        else:
+                            self.target_text = self.pre_dialogue
+                            audio_to_play = getattr(self, 'pre_audio_file', None)
+
                         self.post_dialogue, self.pre_dialogue, self.current_text, self.char_index, self.state = "", "", "", 0, GameState.TYPING
+                        self.tts.play_audio(audio_to_play)
                     else: self.state = GameState.IDLE
 
             # === 调用苦力工 ui_renderer 干活 ===
@@ -379,4 +407,4 @@ class GalgameEngine:
                         self.screen.blit(load_txt, load_txt.get_rect(bottomright=(self.WIDTH - 20, self.HEIGHT - 20)))
 
             pygame.display.flip()
-            clock.tick(60)
+            clock.tick(30)
